@@ -35,7 +35,8 @@ class KeyPointerPair {
  * For node traversal purposes
 */
 class Node {
-    virtual ~Node() {}
+    public:
+        virtual ~Node() {}
 };
 
 /**
