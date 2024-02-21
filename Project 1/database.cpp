@@ -78,9 +78,9 @@ bool Database::addRecord(const Record &record)
     blkPtr[curBlkUsed - 1] = '\0'; // Null-terminate, optional
 
     // Uncomment for debugging
-    cout<<"Record details:"<<endl;
-    record.print();
-    cout<<"Successfully added to database."<<endl;
+    // cout<<"Record details:"<<endl;
+    // record.print();
+    // cout<<"Successfully added to database."<<endl;
 
     return true;
 }
