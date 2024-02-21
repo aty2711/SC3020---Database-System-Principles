@@ -8,6 +8,21 @@
 #include <tuple>
 using namespace std;
 
+/**
+ * ~~~~~~~~~~~~~~~~~~~~~~~ IMPORTANT ~~~~~~~~~~~~~~~~~~~~~~~
+ * If you are using Visual Studio Code as your IDE,
+ * running the compiler with F5 may not work.
+ * 
+ * If you are facing this problem, then paste these line-by-line in
+ * your CLI / terminal: (include all .cpp files in the list)
+ * 
+ * cd "Project 1"
+ * g++ main.cpp b_plus_tree.cpp block.cpp database.cpp record.cpp -o main
+ * ./main
+ * 
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
 int main()
 {
     cout << "<------------------- Database Storage Component ------------------->\n"
