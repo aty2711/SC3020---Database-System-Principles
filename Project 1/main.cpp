@@ -1,5 +1,6 @@
 #include "database.h"
 #include "b_plus_tree.h"
+#include "record.h"
 #include <iostream>
 using namespace std;
 

@@ -1,3 +1,4 @@
+#pragma once // Header guard to prevent multiple inclusions
 #include <string>
 #include <vector>
 using namespace std;
