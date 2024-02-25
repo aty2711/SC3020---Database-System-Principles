@@ -23,8 +23,8 @@ Database::Database(uint databaseSize)
 
 Database::~Database()
 {
-    delete databasePtr;
-    databasePtr = nullptr;
+    delete[] this->databasePtr;
+    this->databasePtr = nullptr;
 }
 
 bool Database::addNewBlock()
@@ -52,18 +52,18 @@ bool Database::addRecord(const Record &record)
 {
     std::string serializedRecord = record.serialize();
 
+    if (200 < serializedRecord.size())
+    {
+        throw "Unable to reserve space as record size is greater than the block size";
+    }
+
     if (curBlkUsed + serializedRecord.size() + 1 > 200 || numAllocBlks == 0)
-    { 
+    {
         if (!addNewBlock())
         {
             std::cerr << "Failed to allocate a new block as no free space in blocks or no blocks can be allocated." << std::endl;
             return false; // Unable to allocate a new block
         }
-    }
-
-    if (200 < serializedRecord.size())
-    {
-        throw "Unable to reserve space as record size is greater than the block size";
     }
 
     blkPtr = databasePtr + (numAllocBlks - 1) * 200; // Calculate current block's starting point
@@ -78,17 +78,21 @@ bool Database::addRecord(const Record &record)
     blkPtr[curBlkUsed - 1] = '\0'; // Null-terminate, optional
 
     // Uncomment for debugging
-    // cout<<"Record details:"<<endl;
+    // cout << "Record details:" << endl;
     // record.print();
-    // cout<<"Successfully added to database."<<endl;
+    // cout << "Successfully added to database." << endl;
 
     return true;
 }
 
 bool Database::deleteRecord(uchar *blkAddress, uint relativeOffset, uint recordSize)
 {
+
     try
     {
+        // Deallocate used memory from counter (should be done last after the successful deletion)
+        // Replace the record with null bytes
+        //
         databaseUsedRecords -= recordSize;
         fill(blkAddress + relativeOffset, blkAddress + relativeOffset + recordSize, '\0');
 
