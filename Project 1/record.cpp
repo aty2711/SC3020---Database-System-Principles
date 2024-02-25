@@ -1,9 +1,8 @@
-#include "Record.h"
+#include "record.h"
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 using namespace std;
-
 
 Record::Record(std::string tconst, double averageRating, int numVotes)
     : tconst(tconst), averageRating(averageRating), numVotes(numVotes) {}

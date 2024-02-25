@@ -35,16 +35,15 @@ int main()
          << "\n"
          << "\n";
 
-    ifstream dataFile("C:/Users/Ng Yong Jian/OneDrive - Nanyang Technological University/Desktop/NTU/Y3S2/SC3020 Database System Principles/Projects/data.tsv");
+    ifstream dataFile("./data.tsv");
 
-    Database db(500000000);
+    Database db(524288000); // 500MB disk space
 
     // Example: Add records to the database
     // db.addRecord(Record("tt0000001", 5.6, 1645));
     // db.addRecord(Record("tt0000002", 6.1, 198));
 
     bool flag = true;
-    // int count = 0;
     if (dataFile.is_open())
     {
         string line;
@@ -71,11 +70,11 @@ int main()
 
             if (!db.addRecord(record))
             {
-                cout << "Failed to add record to database." << endl;
+                cout << "Failed to add the following record to database: " << endl;
+                record.print();
             }
             else
             {
-                // count += 1;
                 // cout << "Record successfully added to database." << endl;
             }
         }
@@ -86,7 +85,7 @@ int main()
 
     cout << "<------------------- Database Statistics ------------------->"
          << "\n";
-    cout << "1. Size of Memory Pool: " << db.getDatabaseSize() << "\n ";
+    cout << "1. Size of Memory Pool: " << db.getDatabaseSize() << "\n";
     cout << "2. Number of blocks available: " << db.getDatabaseSize() / 200 << "\n";
     cout << "3. Number of allocated blocks: " << db.getNumAllocBlks()
          << "\n";
