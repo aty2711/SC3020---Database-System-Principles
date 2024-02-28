@@ -1,117 +1,180 @@
 #include "database.h"
+#include <stdexcept>
 #include <iostream>
-#include <vector>
-#include <tuple>
-#include <string.h>
-using namespace std;
 
-typedef unsigned int uint;
-typedef unsigned char uchar;
-
-Database::Database(uint databaseSize)
+Database::Database(uint databaseSize) : diskManager(databaseSize)
 {
-    this->databaseSize = databaseSize;
-    uchar *databasePtr = nullptr;
-    this->databasePtr = new uchar[databaseSize]; // allocate databaseSize uchars and store it in databasePtr and initialize it to NULL.
-    this->blkPtr = nullptr;
-    this->databaseUsedBlks = 0;
-    this->databaseUsedRecords = 0;
-    this->numAllocBlks = 0;
-    this->numAvailBlks = databaseSize / 200;
-    this->curBlkUsed = 0;
+    this->bptree = BPTree();
 }
 
-Database::~Database()
+Database::~Database() {}
+
+void Database::insertRecord(const Record &record)
 {
-    delete[] this->databasePtr;
-    this->databasePtr = nullptr;
-}
-
-bool Database::addNewBlock()
-{
-
-    if (numAvailBlks > 0)
-    {
-        blkPtr = databasePtr + (numAllocBlks * 200); // increment blkPtr by number of allocated blocks
-        databaseUsedBlks += 200;
-        numAvailBlks -= 1; // decrement the available number of blocks by 1
-        numAllocBlks += 1; // increment the number of allocated blocks by 1
-        curBlkUsed = 0;
-
-        return true;
-    }
-
-    else
-    {
-        cout << "MEMORY FULL";
-        return false;
-    }
-}
-
-bool Database::addRecord(const Record &record)
-{
-    std::string serializedRecord = record.serialize();
-
-    if (200 < serializedRecord.size())
-    {
-        throw "Unable to reserve space as record size is greater than the block size";
-    }
-
-    if (curBlkUsed + serializedRecord.size() + 1 > 200 || numAllocBlks == 0)
-    {
-        if (!addNewBlock())
-        {
-            std::cerr << "Failed to allocate a new block as no free space in blocks or no blocks can be allocated." << std::endl;
-            return false; // Unable to allocate a new block
-        }
-    }
-
-    blkPtr = databasePtr + (numAllocBlks - 1) * 200; // Calculate current block's starting point
-
-    // Copy the serialized record into the block
-    memcpy(blkPtr + curBlkUsed, serializedRecord.c_str(), serializedRecord.size());
-
-    // Update the current block usage and global record count
-    curBlkUsed += serializedRecord.size() + 1; // +1 for delimiter or end-of-record marker
-    databaseUsedRecords += serializedRecord.size() + 1;
-
-    blkPtr[curBlkUsed - 1] = '\0'; // Null-terminate, optional
-
-    // Uncomment for debugging
-    // cout << "Record details:" << endl;
-    // record.print();
-    // cout << "Successfully added to database." << endl;
-
-    return true;
-}
-
-bool Database::deleteRecord(uchar *blkAddress, uint relativeOffset, uint recordSize)
-{
-
     try
     {
-        // Deallocate used memory from counter (should be done last after the successful deletion)
-        // Replace the record with null bytes
-        //
-        databaseUsedRecords -= recordSize;
-        fill(blkAddress + relativeOffset, blkAddress + relativeOffset + recordSize, '\0');
 
-        uchar cmpBlk[recordSize];
-        fill(cmpBlk, cmpBlk + recordSize, '\0');
-
-        if (equal(cmpBlk, cmpBlk + recordSize, blkAddress))
+        int blockId;
+        if (freeBlockSlotHash.empty())
         {
-            databaseUsedBlks -= 200;
+            blockId = diskManager.createBlock();
+            freeBlockSlotHash[blockId] = diskManager.BLOCK_SIZE / sizeof(Record) - 1; // -1 to account for the record being inserted
+        }
+        else
+        {
+            blockId = freeBlockSlotHash.begin()->first; // Get the first block with free slots, retrieve blockId
+            freeBlockSlotHash[blockId] -= 1;
+            if (freeBlockSlotHash[blockId] == 0) // If the block is full, remove it from the hash
+            {
+                freeBlockSlotHash.erase(blockId);
+            }
         }
 
-        return true;
-    }
+        std::shared_ptr<Block> block = diskManager.readBlock(blockId); // Read the block to insert the record into
 
-    catch (exception &e)
-    {
-        cout << "Exception" << e.what() << "\n";
-        cout << "Delete record or block failed"
-             << "\n";
-        return false;
+        int blockOffset = block->getFreeIndex(); // Get the first free index slot in the block
+        if (blockOffset == -1)
+        {
+            throw std::runtime_error("Block is full");
+            // insertRecord(key, record);
+        }
+        else
+        {
+            block->insertRecord(record, blockOffset);
+            diskManager.writeBlock(blockId, block);
+            std::string numvotes = std::to_string(record.getNumVotes());
+            // bptree.insertKey(key, blockId, blockOffset);
+        }
     }
+    catch (std::runtime_error &e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
+}
+
+// bool Database::deleteRecord(const std::string &keyValue)
+// {
+//     // Incomplete
+//     // bool Database::deleteRecord(const std::string &key)
+//     // deal with multiple records with the same keyValue?
+
+//     // Use the B+ tree to find the block ID and offset, then delete the record from the block
+//     // Placeholder implementation
+
+//     std::tuple<int, int> result = bptree.search(key);
+//     int blockId = std::get<0>(result);
+//     int blockOffset = std::get<1>(result);
+//     if (blockId >= 0)
+//     {
+//         std::shared_ptr<Block> block = diskManager.readBlock(blockId);
+//         if (blockOffset != -1)
+//         {
+//             block->deleteRecord(blockOffset);
+//             diskManager.writeBlock(blockId, block);
+//             // bptree.deleteKey(key);
+//             return true;
+//         }
+//         else
+//         {
+//             throw std::runtime_error("Invalid BlockOffse");
+//         }
+//     }
+//     else
+//     {
+//         throw std::runtime_error("Invalid BlockId");
+//     }
+//     return false;
+// }
+
+// std::vector<Record> Database::retrieveRecordByBPTree(std::string attributeValue)
+// {
+//     std::vector<Record> records;
+//     std::vector<std::tuple<int, int>> blockOffsets = bptree.search(attributeValue);
+//     for (auto &blockOffset : blockOffsets)
+//     {
+//         int blockId = std::get<0>(blockOffset);
+//         int offset = std::get<1>(blockOffset);
+//         std::shared_ptr<Block> block = diskManager.readBlock(blockId);
+//         Record record = block->getRecord(offset);
+//         records.push_back(record);
+//     }
+//     return records;
+// }
+
+std::vector<Record> Database::retrieveRecordByLinearScan(std::string attributeValue)
+{
+    std::vector<int> blockIds = diskManager.getAllBlockIds();
+    std::vector<Record> queryResult;
+    int timeTaken = 0;
+    for (auto &blockId : blockIds)
+    {
+        std::shared_ptr<Block> block = diskManager.readBlock(blockId);
+        int blockAccessTime = diskManager.simulateBlockAccessTime(blockId);
+        std::vector<Record> blockRecords = block->retrieveAllRecords();
+        for (auto &record : blockRecords)
+        {
+            if (record.getNumVotes() == std::stoi(attributeValue))
+            {
+                queryResult.push_back(record);
+            }
+        }
+        timeTaken += blockAccessTime;
+    }
+    std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
+    std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
+    return queryResult;
+}
+
+// std::vector<Record> Database::retrieveRangeRecordsByBPTree(std::string start, std::string end)
+
+std::vector<Record> Database::retrieveRangeRecordsByLinearScan(std::string start, std::string end)
+{
+    // Assuming numerical
+    int startValue = std::stoi(start);
+    int endValue = std::stoi(end);
+    std::vector<int> blockIds = diskManager.getAllBlockIds();
+    std::vector<Record> queryResult;
+    int timeTaken = 0;
+
+    for (auto &blockId : blockIds)
+    {
+        std::shared_ptr<Block> block = diskManager.readBlock(blockId);
+        int blockAccessTime = diskManager.simulateBlockAccessTime(blockId);
+        std::vector<Record> blockRecords = block->retrieveAllRecords();
+        for (auto &record : blockRecords)
+        {
+            if (record.getNumVotes() >= startValue && record.getNumVotes() <= endValue)
+            {
+                queryResult.push_back(record);
+            }
+        }
+        timeTaken += blockAccessTime;
+    }
+    std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
+    std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
+    return queryResult;
+}
+
+// void Database::deleteRecordByBPTree(std::string attributeValue)
+
+void Database::deleteRecordsByLinearScan(std::string attributeValue)
+{
+    std::vector<int> blockIds = diskManager.getAllBlockIds();
+    int timeTaken = 0;
+    for (auto &blockId : blockIds)
+    {
+        std::shared_ptr<Block> block = diskManager.readBlock(blockId);
+        int blockAccessTime = diskManager.simulateBlockAccessTime(blockId);
+        std::vector<Record> blockRecords = block->retrieveAllRecords();
+        for (int i = 0; i < blockRecords.size(); i++)
+        {
+            if (blockRecords[i].getNumVotes() == std::stoi(attributeValue))
+            {
+                block->deleteRecord(i);
+            }
+        }
+        timeTaken += blockAccessTime;
+    }
+    std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
+    std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
 }

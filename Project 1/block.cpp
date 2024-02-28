@@ -1,27 +1,86 @@
 #include "block.h"
+#include "record.h"
 #include <iostream>
 
-bool Block::addRecord(const Record &record)
+bool Block::insertRecord(const Record &record, int index)
 {
-    std::string serializedRecord = record.serialize();
-
-    size_t currentSize = 0;
-    for (const auto &rec : records)
+    // Check if the index is within bounds and the slot is unoccupied
+    if (index >= 0 && index < BLOCK_CAPACITY && !slotsOccupancy.test(index))
     {
-        currentSize += rec.size() + 1; // +1 for newline or other delimiter
+        records[index] = record;   // Insert the record
+        slotsOccupancy.set(index); // Mark the slot as occupied
+        return true;               // Indicate successful insertion
     }
-    if (currentSize + serializedRecord.size() + 1 <= MAX_SIZE)
-    {
-        records.push_back(serializedRecord);
-        return true;
-    }
-    return false;
+    return false; // Slot is already occupied or index out of bounds
 }
 
-void Block::printRecords() const
+bool Block::deleteRecord(int index)
 {
-    for (const auto &record : records)
+    // Check if the index is within bounds and the slot is occupied
+    if (index >= 0 && index < BLOCK_CAPACITY && slotsOccupancy.test(index))
     {
-        std::cout << record << std::endl;
+        records[index] = std ::nullopt; // Delete the record
+        slotsOccupancy.reset(index);    // Mark the slot as unoccupied
+        return true;                    // Indicate successful deletion
     }
+    return false; // Slot is already unoccupied or index out of bounds
+}
+
+bool Block::updateRecord(int index, const Record &record)
+{
+    // Check if the index is within bounds and the slot is occupied
+    if (index >= 0 && index < BLOCK_CAPACITY && slotsOccupancy.test(index))
+    {
+        records[index] = record; // Update the record
+        return true;             // Indicate successful update
+    }
+    return false; // Slot is unoccupied or index out of bounds
+}
+
+void Block::printBlock() const
+{
+    std::cout << "Block contents:" << std::endl;
+    for (int i = 0; i < BLOCK_CAPACITY; i++)
+    {
+        if (records[i] == std::nullopt)
+        {
+
+            std::cout << "Slot " << i << " is empty" << std::endl;
+        }
+        else
+        {
+            records[i]->print();
+        }
+    }
+    std::cout << std::endl;
+}
+
+int Block::getNumRecordsStored() const
+{
+    return slotsOccupancy.count();
+}
+
+int Block::getFreeIndex() const
+{
+    for (int i = 0; i < BLOCK_CAPACITY; i++)
+    {
+        if (!slotsOccupancy.test(i))
+        {
+            return i;
+        }
+    }
+    return -1; // No free slots available
+}
+
+std::vector<Record> Block::retrieveAllRecords() const
+{
+    std::vector<Record> allRecords;
+    for (int i = 0; i < BLOCK_CAPACITY; i++)
+    {
+        if (slotsOccupancy.test(i))
+        {
+            allRecords.push_back(*records[i]);
+        }
+    }
+    return allRecords;
 }
