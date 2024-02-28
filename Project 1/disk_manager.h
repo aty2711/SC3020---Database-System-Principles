@@ -45,16 +45,15 @@ public:
     DiskManager(int DISK_SIZE) : nextBlockId(0)
     {
         this->DISK_SIZE = DISK_SIZE;
-    } // Constructor initializes nextBlockId
+    }
 
     std::shared_ptr<Block> readBlock(int blockId);
 
     void writeBlock(int blockId, const std::shared_ptr<Block> &block);
     int createBlock();
     void deleteBlock(int blockId);
-    int getNumBlocksUsed() const { return blocks.size(); };
     int getNumRecordsStored() const;
-    int getTotalBlockCapacity() const { return floor(DISK_SIZE / BLOCK_SIZE); };
+    int getTotalBlockCapacity() const { return DISK_SIZE / BLOCK_SIZE; };
     std::vector<int> getAllBlockIds() const;
 
     double simulateBlockAccessTime(int blockId);

@@ -11,10 +11,8 @@ Record::Record(std::string tconst, float averageRating, int numVotes)
     {
         if (tconst.length() == 9)
         {
-            tconst += " ";
+            tconst += " "; // padding with space
         }
-
-        // Check for tconst size
         if (tconst.length() != 10)
         {
             throw std::invalid_argument("tconst must be exactly 9/10 characters. " + tconst + " is " + std::to_string(tconst.length()) + " characters long.");

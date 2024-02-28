@@ -1,3 +1,14 @@
+
+/**
+ * @file database.h
+ * @brief Defines the Database class for managing database operations and disk storage.
+ *
+ * Database class is a high-level interface between the data through the disk manager and the B+ tree.
+ * It provides a simplified model of database operations, including inserting, searching, deleting records,
+ * and retrieving range of records. It also provides a simplified model of disk operations, including simulating
+ * block read and write operations, block allocation and deallocation, and disk space management.
+ */
+
 #ifndef DATABASE_H
 #define DATABASE_H
 
@@ -11,9 +22,6 @@
 typedef unsigned int uint;
 typedef unsigned char uchar;
 
-/**
- * Database class is a high-level interface between the data through the disk manager and the B+ tree.
- */
 class Database
 {
 private:

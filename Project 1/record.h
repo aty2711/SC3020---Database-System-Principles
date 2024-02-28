@@ -25,7 +25,7 @@ public:
      * Constructor for the Record class.
      * Initializes a Record object with specified values, enforcing data validation.
      *
-     * @param tconst A unique identifier for the record. Must be 9/10 characters long. 11 bytes
+     * @param tconst A unique identifier for the record. Must be 9/10 characters long +1 null terminator. 11 bytes
      * @param averageRating Must be a valid float. 4 bytes
      * @param numVotes  Must be non-negative. 4 bytes
      *
