@@ -58,23 +58,14 @@ std::vector<int> DiskManager::getAllBlockIds() const
 
 double DiskManager::calculateRotationalDelay(int blockId)
 {
-    // Model assumes blocks are evenly distributed across the disk and the disk rotates at a constant speed.
-    int totalBlocks = getTotalBlockCapacity();
-    double blocksPerTrack = static_cast<double>(totalBlocks) / numTracks; // Should be 10732/1024 = 10.5
-
-    int sectorPosition = blockId % (int)blocksPerTrack; // Calculate the position of the block on the track
-    double degreesPerSector = 360.0 / blocksPerTrack;   // 360 degrees divided by blocks per track, assuming 1 block per sector
-    double targetAngle = sectorPosition * degreesPerSector;
+    int sectorPosition = blockId % (int)sectorsPerTrack; // Find the sector position of the block using modulo for simulation
+    double degreesPerSector = 360.0 / sectorsPerTrack;
+    double targetAngle = sectorPosition * degreesPerSector; // angle distance from 0 to the target sector
 
     double currentAngle = 0; // Assume the disk is initially at position 0
 
+    //  Only one direction
     double angularDistance = std::abs(targetAngle - currentAngle); // Calculate the angular distance needed to move
-
-    // Adjust for the shortest path (clockwise or counterclockwise)
-    if (angularDistance > 180)
-    {
-        angularDistance = 360 - angularDistance;
-    }
 
     // Calculate the time needed for the disk to rotate this angular distance
     double rotationsPerMs = rotationalSpeedRPM / 60.0 / 1000.0;                     // Rotations per ms
@@ -86,13 +77,14 @@ double DiskManager::calculateRotationalDelay(int blockId)
 
 double DiskManager::calculateSeekTime(double distance)
 {
-    // Simple linear model
-    return 0.004 + (distance / numTracks) * 0.010; // Base time plus additional time per block
+    return 3 + (distance / tracksPerSurface) * 2; // 3ms startup time + fraction of full movement * time taken for full movement
+    // referring to lecture, average seek time is 4ms. So, we can use 3ms as startup time and 2ms as time taken for full movement
+    // 4ms = 3ms + 0.5 * 2ms
 }
 
 int DiskManager::blockIdToTrack(int blockId)
 {
-    return fmod(blockId, numTracks);
+    return fmod(blockId, tracksPerSurface);
 }
 
 double DiskManager::simulateBlockAccessTime(int blockId)

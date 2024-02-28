@@ -28,9 +28,15 @@ private:
     std::unordered_map<int, std::shared_ptr<Block>> blocks; // Maps block IDs to Block objects
     int nextBlockId;                                        // For Block creation and ID assignment
 
-    double currentHeadPosition = 0;        // Represents the current position of the disk head
-    double numTracks = 1024;               // 1024 tracks as an arbitrary number
-    double rotationalSpeedRPM = 7200;      // Rotational speed of the disk in RPM
+    // Disk Configs
+    int numOfSurface = 1;
+    int blocksPerSector = 2;                                                            // 2 blocks per sector as an arbitrary number
+    int bytesPerSector = blocksPerSector * BLOCK_SIZE;                                  // 400 bytes per sector
+    int sectorsPerTrack = 256;                                                          // 256 sectors as an arbitrary number
+    int tracksPerSurface = DISK_SIZE / sectorsPerTrack / bytesPerSector / numOfSurface; // 5120 tracks * 256 sectors * 400 bytes = 524288000 bytes = 500MB
+
+    int currentHeadPosition = 0;           // Represents the current position of the disk head
+    double rotationalSpeedRPM = 5400;      // Rotational speed of the disk in RPM
     double cacheHitRate = 0.1;             // Percentage of times data is found in cache
     double averageCacheAccessTime = 0.001; // Average access time from cache in ms
 

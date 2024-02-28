@@ -109,7 +109,7 @@ std::vector<Record> Database::retrieveRecordByLinearScan(std::string attributeVa
     for (auto &blockId : blockIds)
     {
         std::shared_ptr<Block> block = diskManager.readBlock(blockId);
-        int blockAccessTime = diskManager.simulateBlockAccessTime(blockId);
+        timeTaken += diskManager.simulateBlockAccessTime(blockId);
         std::vector<Record> blockRecords = block->retrieveAllRecords();
         for (auto &record : blockRecords)
         {
@@ -118,7 +118,6 @@ std::vector<Record> Database::retrieveRecordByLinearScan(std::string attributeVa
                 queryResult.push_back(record);
             }
         }
-        timeTaken += blockAccessTime;
     }
     std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
@@ -139,7 +138,7 @@ std::vector<Record> Database::retrieveRangeRecordsByLinearScan(std::string start
     for (auto &blockId : blockIds)
     {
         std::shared_ptr<Block> block = diskManager.readBlock(blockId);
-        int blockAccessTime = diskManager.simulateBlockAccessTime(blockId);
+        timeTaken += diskManager.simulateBlockAccessTime(blockId);
         std::vector<Record> blockRecords = block->retrieveAllRecords();
         for (auto &record : blockRecords)
         {
@@ -148,7 +147,6 @@ std::vector<Record> Database::retrieveRangeRecordsByLinearScan(std::string start
                 queryResult.push_back(record);
             }
         }
-        timeTaken += blockAccessTime;
     }
     std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
@@ -164,16 +162,16 @@ void Database::deleteRecordsByLinearScan(std::string attributeValue)
     for (auto &blockId : blockIds)
     {
         std::shared_ptr<Block> block = diskManager.readBlock(blockId);
-        int blockAccessTime = diskManager.simulateBlockAccessTime(blockId);
+        timeTaken += diskManager.simulateBlockAccessTime(blockId);
         std::vector<Record> blockRecords = block->retrieveAllRecords();
         for (int i = 0; i < blockRecords.size(); i++)
         {
             if (blockRecords[i].getNumVotes() == std::stoi(attributeValue))
             {
                 block->deleteRecord(i);
+                timeTaken = diskManager.simulateBlockAccessTime(blockId);
             }
         }
-        timeTaken += blockAccessTime;
     }
     std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
