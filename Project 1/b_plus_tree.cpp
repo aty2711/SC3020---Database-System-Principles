@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stack>
+#include <cmath>
 #include "b_plus_tree.h"
 #include "tree_helper.h"
 using namespace std;
