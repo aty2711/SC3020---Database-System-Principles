@@ -130,36 +130,36 @@ int BPTree::getNumNodes() {
                 }
             }
 
-            // For debugging purposes
-            // Dump all of the keys in this node
+            // // For debugging purposes
+            // // Dump all of the keys in this node
 
-            // Traverse through one whole Node
-            double keysOfNode[n];
-            double key;
-            for (int i = 0; i < n; i++) {
-                key = nonLeafNode->keyArray[i];
-                if (key != nulldouble) {
-                    // Add all non-null keys into temporary string array
-                    keysOfNode[i] = key;
-                } else {
-                    keysOfNode[i] = nulldouble;
-                }
-            }
+            // // Traverse through one whole Node
+            // double keysOfNode[n];
+            // double key;
+            // for (int i = 0; i < n; i++) {
+            //     key = nonLeafNode->keyArray[i];
+            //     if (key != nulldouble) {
+            //         // Add all non-null keys into temporary string array
+            //         keysOfNode[i] = key;
+            //     } else {
+            //         keysOfNode[i] = nulldouble;
+            //     }
+            // }
 
-            // Print these keys out
-            cout << "(";
-            int length = sizeof(keysOfNode)/sizeof(keysOfNode[0]);
-            for (int i = 0; i < length; i++) {
-                if (keysOfNode[i] != nulldouble) {
-                    cout << keysOfNode[i];
-                }
+            // // Print these keys out
+            // cout << "(";
+            // int length = sizeof(keysOfNode)/sizeof(keysOfNode[0]);
+            // for (int i = 0; i < length; i++) {
+            //     if (keysOfNode[i] != nulldouble) {
+            //         cout << keysOfNode[i];
+            //     }
 
-                // Print a comma
-                if (i != length - 1) {
-                    cout << ",";
-                }
-            }
-            cout << ") & ";
+            //     // Print a comma
+            //     if (i != length - 1) {
+            //         cout << ",";
+            //     }
+            // }
+            // cout << ") & ";
         }
     }
 
