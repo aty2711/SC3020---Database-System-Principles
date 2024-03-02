@@ -20,6 +20,8 @@
 #include <vector>
 #include <string>
 #include <bitset>
+#include <optional>
+#include <array>
 
 class Block
 {
