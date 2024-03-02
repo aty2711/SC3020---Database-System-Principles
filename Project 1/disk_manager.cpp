@@ -1,4 +1,5 @@
 #include "disk_manager.h"
+#include <cmath>
 
 DiskManager::DiskManager(int diskSize)
     : nextBlockId(0), numOfSurface(1), blocksPerSector(2), sectorsPerTrack(256),
