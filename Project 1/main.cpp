@@ -1,6 +1,8 @@
 #include "database.h"
 #include "b_plus_tree.h"
 #include "record.h"
+#include "block.h"
+#include "disk_manager.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -25,77 +27,108 @@ using namespace std;
 
 int main()
 {
-    cout << "<------------------- Database Storage Component ------------------->\n"
+    cout << "<----------------- Database Storage Component ------------------->\n"
             "Database is created by allocating a memory pool, divided into blocks\n"
             "We shall make use of a fixed-size memory pool for storage"
          << "\n"
          << "\n";
 
-    cout << "<------------------- Data file read started ------------------->"
+    cout << "<----------------- Data file read started ------------------->"
          << "\n"
          << "\n";
 
-    ifstream dataFile("./data.tsv");
-
     Database db(524288000); // 500MB disk space
-
-    // Example: Add records to the database
-    // db.addRecord(Record("tt0000001", 5.6, 1645));
-    // db.addRecord(Record("tt0000002", 6.1, 198));
-
-    bool flag = true;
+    ifstream dataFile("./data.tsv");
     if (dataFile.is_open())
     {
         string line;
+        getline(dataFile, line); // Skip the first line
 
         while (getline(dataFile, line))
         {
-            if (flag)
-            {
-                flag = false;
-                continue;
-            }
-
-            string tempLine;
-
             string tconst = line.substr(0, line.find('\t'));
-
             stringstream linestream(line);
+            string tempLine;
             getline(linestream, tempLine, '\t');
             double averageRating;
             int numVotes;
             linestream >> averageRating >> numVotes;
-
             Record record(tconst, averageRating, numVotes);
-
-            if (!db.addRecord(record))
-            {
-                cout << "Failed to add the following record to database: " << endl;
-                record.print();
-            }
-            else
-            {
-                // cout << "Record successfully added to database." << endl;
-            }
+            db.insertRecord(record);
         }
     }
-    cout << "<------------------- Data file read ended ------------------->"
+    cout << "<----------------- Data file read ended -------------------->"
          << "\n"
          << "\n";
 
-    cout << "<------------------- Database Statistics ------------------->"
-         << "\n";
-    cout << "1. Size of Memory Pool: " << db.getDatabaseSize() << "\n";
-    cout << "2. Number of blocks available: " << db.getDatabaseSize() / 200 << "\n";
-    cout << "3. Number of allocated blocks: " << db.getNumAllocBlks()
-         << "\n";
-    cout << "4. Number of available blocks: " << db.getNumAvailBlks() << "\n"
-         << '\n';
+    DiskManager diskManager = db.getDiskManager();
+    BPTree bptree = db.getBPTree();
 
+    cout << "<----------------- Experiment 1: Storing Data on Disk -------->" << endl;
+    cout << "Storage Stats:" << endl;
+    cout << "Number of Records: " << diskManager.getNumRecordsStored() << endl;
+    cout << "Size of 1 Record: " << sizeof(Record) << endl;
+    cout << "Number of records in 1 Block: " << 200 / sizeof(Record) << endl;
+    cout << "Number of Blocks Storing Data: " << diskManager.getNumBlocksUsed() << endl;
     dataFile.close();
+    cout << "\n"
+         << endl;
+    cout << "<----------------- Experiment 3: retrieve those movies with the numVotes == 500 -------->" << endl;
+    // cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
+    // vector<Record> records = db.retrieveRecordByBPTree("500");
+    // for (Record record : records)
+    // {
+    //     record.print();
+    // }
+    cout << "Retrieving Records with numVotes == 500 (Linear Scan):" << endl;
+    std::vector<Record> records = db.retrieveRecordByLinearScan("500");
+    cout << "Query Result:" << endl;
+    for (Record record : records)
+    {
+        record.print();
+    }
 
-    // Initialize BPTree
-    BPTree tree = BPTree();
+    cout << "\n"
+         << endl;
 
+    cout << "<----------------- Experiment 4: retrieve those movies with 30,000 <= numVotes <= 40,000 -------->" << endl;
+    // cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
+    // vector<Record> records = db.retrieveRecordByBPTree("500");
+    // for (Record record : records)
+    // {
+    //     record.print();
+    // }
+    cout << "Retrieving movies 30,000 <= numVotes <= 40,000" << endl;
+    records = db.retrieveRangeRecordsByLinearScan("30000", "40000");
+    cout << "Query Result:" << endl;
+    for (Record record : records)
+    {
+        record.print();
+    }
+
+    cout << "<----------------- Experiment 5: delete those movies with numVotes == 1,000 -------->" << endl;
+    // cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
+    // vector<Record> records = db.retrieveRecordByBPTree("500");
+    // for (Record record : records)
+    // {
+    //     record.print();
+    // }
+    cout << "Deleting movies with numVotes == 1,000" << endl;
+    cout << "Record count before deletion: " << diskManager.getNumRecordsStored() << endl;
+    db.deleteRecordsByLinearScan("1000");
+    cout << "Record count before deletion: " << diskManager.getNumRecordsStored() << endl;
+    records = db.retrieveRecordByLinearScan("1000");
+    cout << "Query Result for numVotes == 1,000" << endl;
+    if (records.size() == 0)
+    {
+        cout << "No records found" << endl;
+    }
+    else
+    {
+        for (Record record : records)
+        {
+            record.print();
+        }
+    }
     return 0;
 }
