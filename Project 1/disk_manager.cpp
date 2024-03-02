@@ -1,5 +1,19 @@
 #include "disk_manager.h"
 
+DiskManager::DiskManager(int diskSize)
+    : nextBlockId(0), numOfSurface(1), blocksPerSector(2), sectorsPerTrack(256),
+      currentHeadPosition(0), rotationalSpeedRPM(5400), cacheHitRate(0.1), averageCacheAccessTime(0.001)
+{
+    DISK_SIZE = diskSize;
+    updateDiskConfigurations();
+}
+
+void DiskManager::updateDiskConfigurations()
+{
+    bytesPerSector = blocksPerSector * BLOCK_SIZE;
+    tracksPerSurface = DISK_SIZE / (sectorsPerTrack * bytesPerSector * numOfSurface);
+}
+
 std::shared_ptr<Block> DiskManager::readBlock(int blockId)
 {
     if (blocks.find(blockId) == blocks.end())
