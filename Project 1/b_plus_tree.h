@@ -4,7 +4,10 @@
 using namespace std;
 
 // Maximum number of keys that a LeafNode or NonLeafNode can hold
-const int n = 10; // TODO: Change once this can be calculated
+const int n = 3; // TODO: Change once this can be calculated
+
+// Double value to indicate the key is empty
+const double nulldouble = 0.0;
 
 /**
  * Stores a reference to one pair of record key and pointer to
@@ -19,7 +22,7 @@ const int n = 10; // TODO: Change once this can be calculated
 class KeyPointerPair {
     public:
         // Key of the record
-        string key;
+        double key;
 
         // Reference to the data record
         string* record; // TODO: Change this to the correct data type once data record is implemented
@@ -28,7 +31,7 @@ class KeyPointerPair {
         KeyPointerPair();
 
         // Constructor initializing all attributes
-        KeyPointerPair(string key, string* record);
+        KeyPointerPair(double key, string* record);
 };
 
 /**
@@ -75,13 +78,13 @@ class NonLeafNode : public Node{
         Node* ptrArray[n + 1];
 
         // Stores an array of keys
-        string keyArray[n];
+        double keyArray[n];
 
         // Default constructor
         NonLeafNode();
 
         // Constructor initializing all attributes
-        NonLeafNode(Node* initialPtrArray[n + 1], string initialKeyArray[n]);
+        NonLeafNode(Node* initialPtrArray[n + 1], double initialKeyArray[n]);
 };
 
 /**
@@ -99,23 +102,21 @@ class BPTree {
         int getTreeHeight();
 
         // Search for exact match of key
-        vector<string*> exactSearch(string key);
+        vector<string*> exactSearch(double key);
 
         // Search for key within a range of values
-        vector<string*> rangeSearch(int low, int high);
+        vector<string*> rangeSearch(double low, double high);
 
         // Return total number of LeafNodes and NonLeafNodes
         int getNumNodes();
 
         /**
-         * Returns a vector array of a standard array of key values.
-         * Each element in the vector array corresponds to one LeafNode.
-         * Each element in the standard array corresponds to one key.
+         * Prints out all of the leaf nodes
         */
-        vector<string[n]> displayLeafNodes();
+        void displayLeafNodes();
 
         // Insert a new key into the B+ tree
-        void insertKey(string key, string* record);
+        void insertKey(double key, string* record);
 
     private:
         /**
@@ -125,7 +126,7 @@ class BPTree {
          * to reach the leftmost LeafNode to begin
          * indexing search results.
         */
-        Node* getLeftmostLeafNodeLessThan(string key);
+        Node* getLeftmostLeafNodeLessThan(double key);
 
         /**
          * Helper function for insertKey()
@@ -148,5 +149,5 @@ class BPTree {
          * @param nextPtr After appending the key, this pointer will be at the right
          * of the key
         */
-        void insertIntoNonLeafNodes(string key, vector<NonLeafNode*> nodePath, Node* nextPtr);
+        void insertIntoNonLeafNodes(double key, vector<NonLeafNode*> nodePath, Node* nextPtr);
 };
