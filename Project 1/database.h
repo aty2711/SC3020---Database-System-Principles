@@ -33,8 +33,10 @@ public:
     Database(uint databaseSize);
     ~Database();
 
+    // void insertRecordBPTree(std::string attributeName, Record &record);
     void insertRecord(const Record &record);
     // bool deleteRecord(const std::string &key);
+    void deleteRecordsByLinearScan(std::string attributeValue);
 
     BPTree getBPTree() const { return bptree; };
     DiskManager getDiskManager() const { return diskManager; };
@@ -43,7 +45,6 @@ public:
     // std::vector<Record> retrieveRangeRecordsByBPTree(std:: string start, std::string end);
     std::vector<Record> retrieveRangeRecordsByLinearScan(std::string start, std::string end);
     // void deleteRecordByBPTree(std::string attributeValue);
-    void deleteRecordsByLinearScan(std::string attributeValue);
 };
 
 #endif // DATABASE_H
