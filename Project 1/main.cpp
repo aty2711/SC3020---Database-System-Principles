@@ -1,4 +1,5 @@
 #include "database.h"
+#include "tree_helper.h"
 #include "b_plus_tree.h"
 #include "record.h"
 #include "block.h"
@@ -19,7 +20,7 @@ using namespace std;
  * your CLI / terminal: (include all .cpp files in the list)
  * 
  * cd "Project 1"
- * g++ main.cpp b_plus_tree.cpp block.cpp database.cpp record.cpp -o main
+ * g++ main.cpp b_plus_tree.cpp tree_helper.cpp block.cpp database.cpp record.cpp -o main
  * ./main
  * 
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
