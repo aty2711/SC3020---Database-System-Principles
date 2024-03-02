@@ -3,10 +3,10 @@
 using namespace std;
 
 // Maximum number of keys that a LeafNode or NonLeafNode can hold
-const int n = 3; // TODO: Change once this can be calculated
+const int n = 10; // TODO: Change once this can be calculated
 
-// Double value to indicate the key is empty
-const double nulldouble = 0.0;
+// Integer value to indicate the key is empty
+const double nullInt = -1;
 
 /**
  * Stores a reference to one pair of record key and pointer to
@@ -21,16 +21,17 @@ const double nulldouble = 0.0;
 class KeyPointerPair {
     public:
         // Key of the record
-        double key;
+        int key;
 
         // Reference to the data record
-        string* record; // TODO: Change this to the correct data type once data record is implemented
+        int blockId;
+        int blockOffset;
 
         // Default constructor
         KeyPointerPair();
 
         // Constructor initializing all attributes
-        KeyPointerPair(double key, string* record);
+        KeyPointerPair(int key, int blockId, int blockOffset);
 };
 
 /**
@@ -60,9 +61,6 @@ class LeafNode : public Node {
 
         // Default constructor
         LeafNode();
-
-        // Constructor initializing all attributes
-        LeafNode(KeyPointerPair initialKpp[n], LeafNode* nextNode);
 };
 
 /**
@@ -77,11 +75,8 @@ class NonLeafNode : public Node{
         Node* ptrArray[n + 1];
 
         // Stores an array of keys
-        double keyArray[n];
+        int keyArray[n];
 
         // Default constructor
         NonLeafNode();
-
-        // Constructor initializing all attributes
-        NonLeafNode(Node* initialPtrArray[n + 1], double initialKeyArray[n]);
 };
