@@ -20,7 +20,7 @@ using namespace std;
  * your CLI / terminal: (include all .cpp files in the list)
  * 
  * cd "Project 1"
- * g++ main.cpp b_plus_tree.cpp tree_helper.cpp block.cpp database.cpp record.cpp -o main
+ * g++ -std=c++17 main.cpp b_plus_tree.cpp tree_helper.cpp block.cpp database.cpp record.cpp disk_manager.cpp -o main
  * ./main
  * 
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
