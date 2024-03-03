@@ -531,7 +531,7 @@ void BPTree::insertIntoNonLeafNodes(int key, vector<NonLeafNode*> nodePath, Node
     }
 }
 
-void BPTree::deleteKey(string key){
+void BPTree::deleteKey(int key){
     
     //Check if empty b tree
     if (this->root == nullptr){
@@ -540,7 +540,7 @@ void BPTree::deleteKey(string key){
     }
 
     //Search for Key 
-    vector<string*> results = BPTree::exactSearch(key);
+    vector<tuple<int, int>> results  = exactSearch(key);
     
     //Key is not found
     if (results.empty()){
@@ -556,10 +556,11 @@ void BPTree::deleteKey(string key){
     //find target leaf node with key, save the path.
     NonLeafNode* nonLeafNode = dynamic_cast<NonLeafNode*>(curNode);
     while(nonLeafNode != nullptr){
-        for (string i : nonLeafNode->keyArray){
-            if (key > i) {
+        for (double i : nonLeafNode->keyArray){
+            if (key > i && i != nullInt) {
                 index++;
-            } else {
+            } 
+            else {
                 break;
             }
         }
@@ -573,28 +574,40 @@ void BPTree::deleteKey(string key){
     LeafNode* targetNode = dynamic_cast<LeafNode*>(curNode);
     //find the key's index in leaf node, then delete the records
     //in target node, find same keys and delete the records
-    int firstIndex = std::lower_bound(targetNode->kppArray->key.begin(), targetNode->kppArray->key.end(), key) - targetNode->kppArray->key.begin();
+    //int firstIndex = std::lower_bound(targetNode->kppArray->key.begin(), targetNode->kppArray->key.end(), key) - targetNode->kppArray->key.begin();
+
+    int firstIndex = 0;
+    //find index of first occurence of key in target node
+    for (int i = 0; i<n ;i++){
+        if (targetNode->kppArray[i].key == key){
+            firstIndex = i;
+            break;
+        }
+    }
 
     for (int i=0 ; i<n ; i++){
-        string nodeKey = targetNode->kppArray[i].key;
+        int nodeKey = targetNode->kppArray[i].key;
         if (nodeKey == key){
+        
             //erase contens of kpp, including duplicates
             //targetNode->kppArray[i].key.erase();
             //(*targetNode->kppArray[i].record).erase();
             //dk which one works targetNode->kppArray[i].record->clear();
-            targetNode->kppArray[i].key = "";
-            targetNode->kppArray[i].record = nullptr;
+            targetNode->kppArray[i].key = nullInt;
+            targetNode->kppArray[i].blockId = nullInt;
 
 
             //delete key, then shift all the records 1 to the left
             for (int j=i+1 ; j < n ; j++){
                 targetNode->kppArray[j-1].key = targetNode->kppArray[j].key;
-                targetNode->kppArray[j-1].record = targetNode->kppArray[j].record;
+                targetNode->kppArray[j-1].blockId = targetNode->kppArray[j].blockId;
+                targetNode->kppArray[j-1].blockOffset = targetNode->kppArray[j].blockOffset;
             }
 
             //clear duplicate last key 
-            targetNode->kppArray[getNumKeys(targetNode)-1].key = "";
-            targetNode->kppArray[getNumKeys(targetNode)-1].record = nullptr;
+            targetNode->kppArray[getNumKeys(targetNode)-1].key = nullInt;
+            targetNode->kppArray[getNumKeys(targetNode)-1].blockId = nullInt;
+            targetNode->kppArray[getNumKeys(targetNode)-1].blockOffset = nullInt;
 
             return;
 
@@ -605,22 +618,25 @@ void BPTree::deleteKey(string key){
  
     if (getNumKeys(targetNode) >= minKeys){
 
-        //left most not removed
-        if (targetNode->kppArray[0].key != ""){
+        //TODO change to !leftmost or else never triggered left most not removed
+        //if leftmost is NOT deleted,return
+        if (firstIndex != 0){
             return;
         }
         
         //iterate backwards in path index,check parents nodes
-        while (path.back() != NULL){
+        while (path.back() != nullptr){
             //while 
-            if (path.back()->keyArray[pathIndexes.back()] != key){
+            if (pathIndexes.back() == 0){
+                //path.back()->keyArray[pathIndexes.back()] != key
                 pathIndexes.pop_back();
                 path.pop_back();
             }
 
             else{
                 //new leftmost key TODO check if key return is correct
-                key = targetNode->kppArray->key.front();
+                key = targetNode->kppArray[0].key;
+                //key = targetNode->kppArray->key.front();
                 index = pathIndexes.back();
 
                 curNode = path.back();
@@ -654,8 +670,8 @@ void BPTree::deleteKey(string key){
                 KeyPointerPair borrowleft = left->kppArray[getNumKeys(left) - 1];
 
                 //remove last element of left node, doesnt reduce container size
-                left->kppArray[getNumKeys(left) - 1].key = "";
-                left->kppArray[getNumKeys(left) - 1].record = nullptr;
+                left->kppArray[getNumKeys(left) - 1].key = nullInt;
+                left->kppArray[getNumKeys(left) - 1].blockId = nullInt;
                 
                 
 
@@ -685,7 +701,7 @@ void BPTree::deleteKey(string key){
         }
 
         //check if theres a right neighbor
-        if(prevIndex < parentNode->keyArray->size() - 1){
+        if(prevIndex < getNumKeysNL(parentNode) - 1){
             rightNode = parentNode->ptrArray[prevIndex+1];
             LeafNode* right = dynamic_cast<LeafNode*>(rightNode);
 
@@ -698,12 +714,14 @@ void BPTree::deleteKey(string key){
                 for (int i = 1 ; i < n ; i++){
                     //right->kppArray[i] = right->kppArray[i+1];
                     right->kppArray[i-1].key = right->kppArray[i].key;
-                    right->kppArray[i-1].record = right->kppArray[i].record;
+                    right->kppArray[i-1].blockId = right->kppArray[i].blockId;
+                    right->kppArray[i-1].blockOffset = right->kppArray[i].blockOffset;
                 }
 
                 //clear duplicate last key 
-                right->kppArray[getNumKeys(right)-1].key = "";
-                right->kppArray[getNumKeys(right)-1].record = nullptr;
+                right->kppArray[getNumKeys(right)-1].key = nullInt;
+                right->kppArray[getNumKeys(right)-1].blockId = nullInt;
+                right->kppArray[getNumKeys(right)-1].blockOffset = nullInt;
 
                 //insert into last element of target node
                 targetNode->kppArray[getNumKeys(targetNode)] = borrowright;
@@ -731,8 +749,9 @@ void BPTree::deleteKey(string key){
                 left->kppArray[getNumKeys(left)-1] = targetNode->kppArray[0];
 
                 //delete key in targetnode
-                targetNode->kppArray[0].key = "";
-                targetNode->kppArray[0].record = nullptr;
+                targetNode->kppArray[0].key = nullInt;
+                targetNode->kppArray[0].blockId = nullInt;
+                targetNode->kppArray[0].blockOffset = nullInt;
 
                 //shift targetnode cells 1 to the left
                 for(int i=1; i<getNumKeys(targetNode); i++){
@@ -758,8 +777,9 @@ void BPTree::deleteKey(string key){
                 targetNode->kppArray[getNumKeys(targetNode)-1] = right->kppArray[0];
 
                 //delete key in rightnode
-                right->kppArray[0].key = "";
-                right->kppArray[0].record = nullptr;
+                right->kppArray[0].key = nullInt;
+                right->kppArray[0].blockId = nullInt;
+                right->kppArray[0].blockOffset = nullInt;
 
                 //shift rightnode cells 1 to the left
                 for (int i = 1; i<getNumKeys(right); i++){
@@ -797,7 +817,7 @@ void BPTree::deleteKey(string key){
 int getNumKeys(LeafNode* node){
     int count = 0;
     for (int i=0; i< n; i++){
-        if(node->kppArray[i].key != ""){
+        if(node->kppArray[i].key != nullInt){
             count++;
         }
     }
@@ -807,7 +827,7 @@ int getNumKeys(LeafNode* node){
 int getNumKeysNL(NonLeafNode* node){
     int count = 0;
     for (int i =0;i < n;i++){
-        if(node->keyArray[i] != ""){
+        if(node->keyArray[i] != nullInt){
             count ++;
         }
     }
@@ -815,7 +835,7 @@ int getNumKeysNL(NonLeafNode* node){
 }
 
 //remove internal nodes in tree.
-void BPTree::removeInternalNode(string key,NonLeafNode *parent,Node *child){
+void BPTree::removeInternalNode(int key,NonLeafNode *parent,Node *child){
     //child node is node to be deleted
 
     //if parent node is root
@@ -846,7 +866,7 @@ void BPTree::removeInternalNode(string key,NonLeafNode *parent,Node *child){
             break;
         }
     }
-    parent->keyArray[firstindex] = "";
+    parent->keyArray[firstindex] = nullInt;
     
     //find index in ptr array to node to be deleted
     int pointerIndex = 0;
@@ -864,7 +884,7 @@ void BPTree::removeInternalNode(string key,NonLeafNode *parent,Node *child){
         parent->ptrArray[i] = parent->ptrArray[i+1];
     }
     //delete duplicate key and pointer at  last element
-    parent->keyArray[getNumKeysNL(parent)-1] = "";
+    parent->keyArray[getNumKeysNL(parent)-1] = nullInt;
     parent->ptrArray[getNumKeysNL(parent)] = nullptr;
 
     //If after deletion, parent node > min keys, return
