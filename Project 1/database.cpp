@@ -69,7 +69,7 @@ void Database::insertRecord(const Record &record)
             block.insertRecord(record, blockOffset);
             diskManager.writeBlock(blockId, block);
             std::string numvotes = std::to_string(record.getNumVotes());
-            // bptree.insertKey(key, blockId, recordAddress);
+            bptree.insertKey(record.getNumVotes(), blockId, blockOffset);
         }
     }
     catch (std::runtime_error &e)
@@ -78,25 +78,25 @@ void Database::insertRecord(const Record &record)
     }
 }
 
-void Database::deleteRecordByBPTree(std::string attributeValue)
+void Database::deleteRecordByBPTree(int attributeValue)
 {
-    // double timeTaken = 0;
-    // std::vector<std::tuple<int, int>> recordAddresses = bptree.search(attributeValue);
-    // for (auto &recordAddress : recordAddresses)
-    // {
-    //     int blockId = std::get<0>(recordAddress); // depending on what is the return of bptree.search
-    //     int offset = std::get<1>(recordAddress);
-    //     Block block = diskManager.readBlock(blockId);
-    //     timeTaken += diskManager.simulateBlockAccessTime(blockId);
-    //     block.deleteRecord(offset);
-    //     diskManager.writeBlock(blockId, block);
-    //     timeTaken += diskManager.simulateBlockAccessTime(blockId);
-    //     incrementFreeBlock(blockId);
-    //     bptree.deleteKey(attributeValue, blockId, offset);
-    // }
+    double timeTaken = 0;
+    std::vector<std::tuple<int, int>> recordAddresses = bptree.exactSearch(attributeValue);
+    for (auto &recordAddress : recordAddresses)
+    {
+        int blockId = std::get<0>(recordAddress); // depending on what is the return of bptree.search
+        int offset = std::get<1>(recordAddress);
+        Block block = diskManager.readBlock(blockId);
+        timeTaken += diskManager.simulateBlockAccessTime(blockId);
+        block.deleteRecord(offset);
+        diskManager.writeBlock(blockId, block);
+        timeTaken += diskManager.simulateBlockAccessTime(blockId);
+        incrementFreeBlock(blockId);
+        bptree.deleteKey(attributeValue, blockId, offset);
+    }
 }
 
-void Database::deleteRecordsByLinearScan(std::string attributeValue)
+void Database::deleteRecordsByLinearScan(int attributeValue)
 {
     std::vector<int> blockIds = diskManager.getAllBlockIds();
     int timeTaken = 0;
@@ -109,7 +109,7 @@ void Database::deleteRecordsByLinearScan(std::string attributeValue)
         std::vector<Record> blockRecords = block.retrieveAllRecords();
         for (int i = 0; i < blockRecords.size(); i++)
         {
-            if (blockRecords[i].getNumVotes() == std::stoi(attributeValue))
+            if (blockRecords[i].getNumVotes() == attributeValue)
             {
                 block.deleteRecord(i);
                 incrementFreeBlock(blockId);
@@ -122,7 +122,7 @@ void Database::deleteRecordsByLinearScan(std::string attributeValue)
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
 }
 
-std::vector<Record> Database::retrieveRecordByBPTree(std::string attributeValue)
+std::vector<Record> Database::retrieveRecordByBPTree(int attributeValue)
 {
     // double timeTaken = 0;
     // std::vector<Record> records;
@@ -141,7 +141,7 @@ std::vector<Record> Database::retrieveRecordByBPTree(std::string attributeValue)
     // return records;
 }
 
-std::vector<Record> Database::retrieveRecordByLinearScan(std::string attributeValue)
+std::vector<Record> Database::retrieveRecordByLinearScan(int attributeValue)
 {
     std::vector<int> blockIds = diskManager.getAllBlockIds();
     std::vector<Record> queryResult;
@@ -153,7 +153,7 @@ std::vector<Record> Database::retrieveRecordByLinearScan(std::string attributeVa
         std::vector<Record> blockRecords = block.retrieveAllRecords();
         for (auto &record : blockRecords)
         {
-            if (record.getNumVotes() == std::stoi(attributeValue))
+            if (record.getNumVotes() == attributeValue)
             {
                 queryResult.push_back(record);
             }
@@ -164,7 +164,7 @@ std::vector<Record> Database::retrieveRecordByLinearScan(std::string attributeVa
     return queryResult;
 }
 
-std::vector<Record> Database::retrieveRangeRecordsByBPTree(std::string start, std::string end)
+std::vector<Record> Database::retrieveRangeRecordsByBPTree(int start, int end)
 {
     // double timeTaken = 0;
     // std::vector<Record> records;
@@ -183,11 +183,9 @@ std::vector<Record> Database::retrieveRangeRecordsByBPTree(std::string start, st
     // return records;
 }
 
-std::vector<Record> Database::retrieveRangeRecordsByLinearScan(std::string start, std::string end)
+std::vector<Record> Database::retrieveRangeRecordsByLinearScan(int start, int end)
 {
     // Assuming numerical
-    int startValue = std::stoi(start);
-    int endValue = std::stoi(end);
     std::vector<int> blockIds = diskManager.getAllBlockIds();
     std::vector<Record> queryResult;
     double timeTaken = 0;
@@ -200,7 +198,7 @@ std::vector<Record> Database::retrieveRangeRecordsByLinearScan(std::string start
         std::vector<Record> blockRecords = block.retrieveAllRecords();
         for (auto &record : blockRecords)
         {
-            if (record.getNumVotes() >= startValue && record.getNumVotes() <= endValue)
+            if (record.getNumVotes() >= start && record.getNumVotes() <= end)
             {
                 queryResult.push_back(record);
             }
