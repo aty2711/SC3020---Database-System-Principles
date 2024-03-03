@@ -19,10 +19,10 @@ class BPTree {
         int getTreeHeight();
 
         // Search for exact match of key
-        vector<string*> exactSearch(double key);
+        vector<tuple<int, int>> exactSearch(int key);
 
         // Search for key within a range of values
-        vector<string*> rangeSearch(double low, double high);
+        vector<tuple<int, int>> rangeSearch(int low, int high);
 
         // Return total number of LeafNodes and NonLeafNodes
         int getNumNodes();
@@ -33,7 +33,7 @@ class BPTree {
         void displayLeafNodes();
 
         // Insert a new key into the B+ tree
-        void insertKey(double key, string* record);
+        void insertKey(int key, int blockId, int blockOffset);
 
     private:
         /**
@@ -43,7 +43,7 @@ class BPTree {
          * to reach the leftmost LeafNode to begin
          * indexing search results.
         */
-        Node* getLeftmostLeafNodeLessThan(double key);
+        Node* getLeftmostLeafNodeLessThan(int key);
 
         /**
          * Helper function for insertKey()
@@ -66,5 +66,5 @@ class BPTree {
          * @param nextPtr After appending the key, this pointer will be at the right
          * of the key
         */
-        void insertIntoNonLeafNodes(double key, vector<NonLeafNode*> nodePath, Node* nextPtr);
+        void insertIntoNonLeafNodes(int key, vector<NonLeafNode*> nodePath, Node* nextPtr);
 };

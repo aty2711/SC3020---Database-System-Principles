@@ -5,10 +5,10 @@
 */
 
 // Default constructor
-KeyPointerPair::KeyPointerPair() : key(nulldouble), record(nullptr) {}
+KeyPointerPair::KeyPointerPair() : key(nullInt), blockId(nullInt), blockOffset(nullInt) {}
 
 // Constructor initializing all attributes
-KeyPointerPair::KeyPointerPair(double key, string* record) : key(key), record(record) {}
+KeyPointerPair::KeyPointerPair(int key, int blockId, int blockOffset) : key(key), blockId(blockId), blockOffset(blockOffset) {}
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~ LeafNode ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -23,16 +23,6 @@ LeafNode::LeafNode() {
     nextNode = nullptr;
 }
 
-// Constructor initializing all attributes
-LeafNode::LeafNode(KeyPointerPair initialKpp[n], LeafNode* nextNode) {
-    // Copy the values from argument to attribute
-    for (int i = 0; i < n; ++i) {
-        kppArray[i] = initialKpp[i];
-    }
-
-    this->nextNode = nextNode;
-};
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~ NonLeafNode ~~~~~~~~~~~~~~~~~~~~~~~~
 */
@@ -40,20 +30,9 @@ LeafNode::LeafNode(KeyPointerPair initialKpp[n], LeafNode* nextNode) {
 // Default constructor
 NonLeafNode::NonLeafNode() {
     for (int i = 0; i < n; i++) {
-        keyArray[i] = nulldouble;
+        keyArray[i] = nullInt;
     }
     for (int i = 0; i < n + 1; i++) {
         ptrArray[i] = nullptr;
-    }
-}
-
-// Constructor initializing all attributes
-NonLeafNode::NonLeafNode(Node* initialPtrArray[n + 1], double initialKeyArray[n]) {
-    // Copy the values from argument to attribute
-    for (int i = 0; i < n + 1; ++i) {
-        ptrArray[i] = initialPtrArray[i];
-    }
-    for (int i = 0; i < n; ++i) {
-        keyArray[i] = initialKeyArray[i];
     }
 }
