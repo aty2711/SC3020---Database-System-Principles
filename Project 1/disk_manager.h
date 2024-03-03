@@ -51,9 +51,11 @@ public:
 
     DiskManager(int DISK_SIZE);
 
-    std::shared_ptr<Block> readBlock(int blockId);
+    // std::shared_ptr<Block> readBlock(int blockId);
 
-    void writeBlock(int blockId, const std::shared_ptr<Block> &block);
+    Block readBlock(int blockId) const;
+    void writeBlock(int blockId, Block block);
+
     int createBlock();
     void deleteBlock(int blockId);
     int getNumRecordsStored() const;

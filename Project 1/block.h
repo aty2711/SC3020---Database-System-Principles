@@ -43,6 +43,7 @@ public:
     int getNumRecordsStored() const;
     int getFreeIndex() const; // Returns the index of the first free slot, or -1 if the block is full
     std::vector<Record> retrieveAllRecords() const;
+    Record retrieveRecord(int index) const;
 
 private:
     std::array<std::optional<Record>, BLOCK_CAPACITY> records;

@@ -15,18 +15,33 @@ void DiskManager::updateDiskConfigurations()
     tracksPerSurface = DISK_SIZE / (sectorsPerTrack * bytesPerSector * numOfSurface);
 }
 
-std::shared_ptr<Block> DiskManager::readBlock(int blockId)
+// @deprecated this shares the reference to the block, allowing the caller to modify the block directly, which is incorrect.
+// std::shared_ptr<Block> DiskManager::readBlock(int blockId)
+// {
+//     if (blocks.find(blockId) == blocks.end())
+//     {
+//         throw std::runtime_error("Block not found");
+//     }
+//     return blocks[blockId];
+// }
+
+// copy to main memory version
+Block DiskManager::readBlock(int blockId) const
 {
     if (blocks.find(blockId) == blocks.end())
     {
         throw std::runtime_error("Block not found");
     }
-    return blocks[blockId];
+    return *blocks.at(blockId);
 }
 
-void DiskManager::writeBlock(int blockId, const std::shared_ptr<Block> &block)
+void DiskManager::writeBlock(int blockId, Block block)
 {
-    blocks[blockId] = block;
+    if (blocks.find(blockId) != blocks.end())
+    {
+        // If the blockId exists, update the existing block with the new block data
+        *blocks[blockId] = block;
+    }
 }
 
 int DiskManager::createBlock()

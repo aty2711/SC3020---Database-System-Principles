@@ -29,22 +29,23 @@ private:
     BPTree bptree;                                  // Simulate B+ tree operations such as inserting, searching, deleting records, merging nodes, splitting nodes
     std::unordered_map<int, int> freeBlockSlotHash; // Map block ID to the number of free slots in the block
 
+    int getFreeBlock();
+    void incrementFreeBlock(int blockId);
+
 public:
     Database(uint databaseSize);
     ~Database();
 
-    // void insertRecordBPTree(std::string attributeName, Record &record);
-    void insertRecord(const Record &record);
-    // bool deleteRecord(const std::string &key);
-    void deleteRecordsByLinearScan(std::string attributeValue);
-
     BPTree getBPTree() const { return bptree; };
     DiskManager getDiskManager() const { return diskManager; };
-    // std::vector<Record> retrieveRecordByBPTree(std::string attributeValue);
+
+    void insertRecord(const Record &record);
+    void deleteRecordByBPTree(std::string attributeValue);
+    void deleteRecordsByLinearScan(std::string attributeValue);
+    std::vector<Record> retrieveRecordByBPTree(std::string attributeValue);
     std::vector<Record> retrieveRecordByLinearScan(std::string attributeValue);
-    // std::vector<Record> retrieveRangeRecordsByBPTree(std:: string start, std::string end);
+    std::vector<Record> retrieveRangeRecordsByBPTree(std::string start, std::string end);
     std::vector<Record> retrieveRangeRecordsByLinearScan(std::string start, std::string end);
-    // void deleteRecordByBPTree(std::string attributeValue);
 };
 
 #endif // DATABASE_H
