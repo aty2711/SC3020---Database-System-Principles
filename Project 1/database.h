@@ -40,12 +40,12 @@ public:
     DiskManager getDiskManager() const { return diskManager; };
 
     void insertRecord(const Record &record);
-    void deleteRecordByBPTree(std::string attributeValue);
-    void deleteRecordsByLinearScan(std::string attributeValue);
-    std::vector<Record> retrieveRecordByBPTree(std::string attributeValue);
-    std::vector<Record> retrieveRecordByLinearScan(std::string attributeValue);
-    std::vector<Record> retrieveRangeRecordsByBPTree(std::string start, std::string end);
-    std::vector<Record> retrieveRangeRecordsByLinearScan(std::string start, std::string end);
+    void deleteRecordByBPTree(int attributeValue);
+    void deleteRecordsByLinearScan(int attributeValue);
+    std::vector<Record> retrieveRecordByBPTree(int attributeValue);
+    std::vector<Record> retrieveRecordByLinearScan(int attributeValue);
+    std::vector<Record> retrieveRangeRecordsByBPTree(int start, int end);
+    std::vector<Record> retrieveRangeRecordsByLinearScan(int start, int end);
 };
 
 #endif // DATABASE_H
