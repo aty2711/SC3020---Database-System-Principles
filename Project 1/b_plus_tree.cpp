@@ -832,11 +832,32 @@ void BPTree::removeInternalNode(string key,NonLeafNode *parent,Node *child){
         }
     }
     parent->keyArray[firstindex] = "";
-
-    for (int )
+    
+    //find index in ptr array to node to be deleted
+    int pointerIndex = 0;
+    for(int i = 0; i < n+1; i){
+        if (parent->ptrArray[i] == child){
+            pointerIndex = i;
+            break;
+        }
+    }
+    parent->ptrArray[pointerIndex] = nullptr;
 
     //shift parent nodes to left
+    for (int i = firstindex; i < getNumKeysNL(parent); i++){
+        parent->keyArray[i] = parent->keyArray[i+1];
+        parent->ptrArray[i] = parent->ptrArray[i+1];
+    }
+    //delete duplicate key and pointer at  last element
+    parent->keyArray[getNumKeysNL(parent)-1] = "";
+    parent->ptrArray[getNumKeysNL(parent)] = nullptr;
 
+    //If after deletion, parent node > min keys, return
+    if (getNumKeysNL(parent) >= n/2)
+        return;
+
+
+    //else find left and right neighbors
 
 }
 
