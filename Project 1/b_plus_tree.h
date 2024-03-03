@@ -117,6 +117,27 @@ class BPTree {
         // Insert a new key into the B+ tree
         void insertKey(string key, string* record);
 
+        // Delete key in B+ tree
+        void deleteKey(string key);
+
+        //remove internal node in B+ tree
+        void removeInternalNode(int x,Node *parent,Node *child);
+
+        //update parent node keys 
+        void updateParentKey(int prevIndex,Node *parent,Node *child,std::vector<NonLeafNode*> &path, std::vector<int> &pathIndexes);
+
+        //get num keys in leaf node
+        int getNumKeys(LeafNode* node);
+
+        //get num keys in non leaf node
+        int getNumKeysNL(NonLeafNode* node);
+
+        //remove internal nodes in tree.
+        void removeInternalNode(string x,NonLeafNode *parent,Node *child);
+
+        //update parent node key with key of child node
+        void updateParentKey(int prevIndex,Node *parent,Node *child,std::vector<NonLeafNode*> &path, std::vector<int> &pathIndexes);
+
     private:
         /**
          * Helper function

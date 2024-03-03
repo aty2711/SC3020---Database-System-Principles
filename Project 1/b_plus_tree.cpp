@@ -571,7 +571,7 @@ void BPTree::deleteKey(string key){
             targetNode->kppArray[i].record = nullptr;
 
 
-            //delete key, then shift all the records to the left
+            //delete key, then shift all the records 1 to the left
             for (int j=i+1 ; j < n ; j++){
                 targetNode->kppArray[j-1].key = targetNode->kppArray[j].key;
                 targetNode->kppArray[j-1].record = targetNode->kppArray[j].record;
@@ -637,7 +637,6 @@ void BPTree::deleteKey(string key){
             if(getNumKeys(left) > minKeys){   
                 // = last key in left node
                 KeyPointerPair borrowleft = left->kppArray[getNumKeys(left) - 1];
-                borrowleft.key;
 
                 //remove last element of left node, doesnt reduce container size
                 left->kppArray[getNumKeys(left) - 1].key = "";
@@ -652,33 +651,28 @@ void BPTree::deleteKey(string key){
                 //left->kppArray->key.pop_back();
                 //(*left->kppArray->record).pop_back();
 
-                /*
-                //make space in target node for borrowed key
+                
+                //shift keys in target node by 1 to the right 
                 for (int i = getNumKeys(targetNode); i>0; i--){
                     targetNode->kppArray[i] = targetNode->kppArray[i-1];
                 }
 
                 //insert into first element of target node
                 targetNode->kppArray[0] = borrowleft;
-                */
-            
+                
+                //targetNode->kppArray->key.insert(targetNode->kppArray->key.begin(), left->kppArray->key.back() );
 
-                targetNode->kppArray->key.insert(targetNode->kppArray->key.begin(), left->kppArray->key.back() );
-                //targetNode->kppArray->record->insert
-
-                //update key in parent node to new left node
+                //update key in parent node to new left node added in target node
                 parentNode->keyArray[prevIndex] = targetNode->kppArray[0].key;
+                return;
                 
             }
-
-
-            
         }
 
         //check if theres a right neighbor
         if(prevIndex < parentNode->keyArray->size() - 1){
             rightNode = parentNode->ptrArray[prevIndex+1];
-            LeafNode*right = dynamic_cast<LeafNode*>(rightNode);
+            LeafNode* right = dynamic_cast<LeafNode*>(rightNode);
 
             //if can borrow from right,borrow
             if(getNumKeys(right) > minKeys){
@@ -702,7 +696,7 @@ void BPTree::deleteKey(string key){
                 //update key in parent node 
                 parentNode->keyArray[prevIndex] = right->kppArray[0].key;
 
-                //check if deleted key is the leftmost key in leaf node, need update parent key
+                //check if deleted key in target node is the leftmost key , then need update parent key
                 if (firstIndex == 0){
                     updateParentKey(prevIndex,targetNode,parentNode,path,pathIndexes);
                 }
@@ -716,19 +710,52 @@ void BPTree::deleteKey(string key){
         //there is left neighbor with  min keys,  merge 
         if (leftNode != nullptr){
             LeafNode*left = dynamic_cast<LeafNode*>(leftNode);
+            //while no. of keys not equal to 0, put all keys from target node and merge into the left
             while (getNumKeys(targetNode) != 0){
-                //shift target node 1 to right
-                
+                //set last element of left node to first element of target node
+                left->kppArray[getNumKeys(left)-1] = targetNode->kppArray[0];
+
+                //delete key in targetnode
+                targetNode->kppArray[0].key = "";
+                targetNode->kppArray[0].record = nullptr;
+
+                //shift targetnode cells 1 to the left
+                for(int i=1; i<getNumKeys(targetNode); i++){
+                    targetNode->kppArray[i-1] = targetNode->kppArray[i];
+                }
 
             }
-            //update pointer to next
+            //update pointer to next node
             left->nextNode = targetNode->nextNode;
+            //add remove internal
+            removeInternalNode(parentNode->keyArray[prevIndex - 2], parentNode,targetNode);
         }
 
 
         //else, right neighbor has min keys, and merge
         else{
+            LeafNode* right = dynamic_cast<LeafNode*>(rightNode);
 
+            while(getNumKeys(right) != 0){
+                //delete right records 
+
+                //set last element of targetnode to first element of right
+                targetNode->kppArray[getNumKeys(targetNode)-1] = right->kppArray[0];
+
+                //delete key in rightnode
+                right->kppArray[0].key = "";
+                right->kppArray[0].record = nullptr;
+
+                //shift rightnode cells 1 to the left
+                for (int i = 1; i<getNumKeys(right); i++){
+                    right->kppArray[i-1] = right->kppArray[i];
+                }
+
+            }
+
+            //update pointer to next node
+            targetNode->nextNode = right->nextNode;
+            removeInternalNode(parentNode->keyArray[prevIndex],parentNode, right);
         }
 
     }
@@ -762,8 +789,54 @@ int getNumKeys(LeafNode* node){
     return count;
 }
 
+int getNumKeysNL(NonLeafNode* node){
+    int count = 0;
+    for (int i =0;i < n;i++){
+        if(node->keyArray[i] != ""){
+            count ++;
+        }
+    }
+    return count;
+}
+
 //remove internal nodes in tree.
-void BPTree::removeInternalNode(int x,Node *parent,Node *child){
+void BPTree::removeInternalNode(string key,NonLeafNode *parent,Node *child){
+    //child node is node to be deleted
+
+    //if parent node is root
+    if (parent == root){
+        
+        //if parent only has 1 key, set root to child node
+        if(getNumKeysNL(parent) == 1){
+
+            if (parent->ptrArray[0] == child){
+                root = parent->ptrArray[1];
+            }
+
+            else{
+                root = parent->ptrArray[0];
+
+            }
+            return;
+        }
+    }
+
+    //delete key and pointer in parent node
+
+    //find index of key in parent node
+    int firstindex = 0;
+    for (int i=0; i<n;i++){
+        if (parent->keyArray[i] == key){
+            int firstindex = i;
+            break;
+        }
+    }
+    parent->keyArray[firstindex] = "";
+
+    for (int )
+
+    //shift parent nodes to left
+
 
 }
 
