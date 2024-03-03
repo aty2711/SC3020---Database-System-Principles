@@ -84,3 +84,12 @@ std::vector<Record> Block::retrieveAllRecords() const
     }
     return allRecords;
 }
+
+Record Block::retrieveRecord(int index) const
+{
+    if (index >= 0 && index < BLOCK_CAPACITY && slotsOccupancy.test(index))
+    {
+        return *records[index];
+    }
+    throw std::runtime_error("Record not found");
+}

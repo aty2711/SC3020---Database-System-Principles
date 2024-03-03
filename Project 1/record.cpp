@@ -2,6 +2,9 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <cstring>
+#include <cmath>
+
 using namespace std;
 
 Record::Record(std::string tconst, float averageRating, int numVotes)

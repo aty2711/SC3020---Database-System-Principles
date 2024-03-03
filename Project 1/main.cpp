@@ -1,4 +1,5 @@
 #include "database.h"
+#include "tree_helper.h"
 #include "b_plus_tree.h"
 #include "record.h"
 #include "block.h"
@@ -9,6 +10,21 @@
 #include <vector>
 #include <tuple>
 using namespace std;
+
+/**
+ * ~~~~~~~~~~~~~~~~~~~~~~~ IMPORTANT ~~~~~~~~~~~~~~~~~~~~~~~
+ * If you are using Visual Studio Code as your IDE,
+ * running the compiler with F5 may not work.
+ * 
+ * If you are facing this problem, then paste these line-by-line in
+ * your CLI / terminal: (include all .cpp files in the list)
+ * 
+ * cd "Project 1"
+ * g++ -std=c++17 main.cpp b_plus_tree.cpp tree_helper.cpp block.cpp database.cpp record.cpp disk_manager.cpp -o main
+ * ./main
+ * 
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 
 int main()
 {

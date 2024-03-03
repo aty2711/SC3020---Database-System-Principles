@@ -26,42 +26,42 @@ class DiskManager
 {
 private:
     std::unordered_map<int, std::shared_ptr<Block>> blocks; // Maps block IDs to Block objects
-    int nextBlockId;                                        // For Block creation and ID assignment
+    int nextBlockId;                                        // For Block creation and ID assignment                                      // For Block creation and ID assignment
 
     // Disk Configs
-    int numOfSurface = 1;
-    int blocksPerSector = 2;                                                            // 2 blocks per sector as an arbitrary number
-    int bytesPerSector = blocksPerSector * BLOCK_SIZE;                                  // 400 bytes per sector
-    int sectorsPerTrack = 256;                                                          // 256 sectors as an arbitrary number
-    int tracksPerSurface = DISK_SIZE / sectorsPerTrack / bytesPerSector / numOfSurface; // 5120 tracks * 256 sectors * 400 bytes = 524288000 bytes = 500MB
+    int numOfSurface;
+    int blocksPerSector;  // 2 blocks per sector as an arbitrary number
+    int bytesPerSector;   // Calculated based on blocksPerSector * BLOCK_SIZE
+    int sectorsPerTrack;  // 256 sectors as an arbitrary number
+    int tracksPerSurface; // Calculated based on disk size
 
-    int currentHeadPosition = 0;           // Represents the current position of the disk head
-    double rotationalSpeedRPM = 5400;      // Rotational speed of the disk in RPM
-    double cacheHitRate = 0.1;             // Percentage of times data is found in cache
-    double averageCacheAccessTime = 0.001; // Average access time from cache in ms
+    int currentHeadPosition;       // Represents the current position of the disk head
+    double rotationalSpeedRPM;     // Rotational speed of the disk in RPM
+    double cacheHitRate;           // Percentage of times data is found in cache
+    double averageCacheAccessTime; // Average access time from cache in ms
 
-    double calculateSeekTime(double distance);
+    void updateDiskConfigurations();
     double calculateRotationalDelay(int blockId);
+    double calculateSeekTime(double distance);
     int blockIdToTrack(int blockId);
 
 public:
     static const int BLOCK_SIZE = 200; // Size of each block in bytes
     int DISK_SIZE;                     // Size of the disk in bytes
 
-    DiskManager(int DISK_SIZE) : nextBlockId(0)
-    {
-        this->DISK_SIZE = DISK_SIZE;
-    }
+    DiskManager(int DISK_SIZE);
 
-    std::shared_ptr<Block> readBlock(int blockId);
+    // std::shared_ptr<Block> readBlock(int blockId);
 
-    void writeBlock(int blockId, const std::shared_ptr<Block> &block);
+    Block readBlock(int blockId) const;
+    void writeBlock(int blockId, Block block);
+
     int createBlock();
     void deleteBlock(int blockId);
     int getNumRecordsStored() const;
+    int getNumBlocksUsed() const { return blocks.size(); };
     int getTotalBlockCapacity() const { return DISK_SIZE / BLOCK_SIZE; };
     std::vector<int> getAllBlockIds() const;
-
     double simulateBlockAccessTime(int blockId);
 };
 

@@ -1,72 +1,10 @@
 #include <iostream>
-#include <string>
-#include <cmath>
-#include <vector>
 #include <stack>
+#include <cmath>
 #include "b_plus_tree.h"
+#include "tree_helper.h"
 using namespace std;
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~ KeyPointerPair ~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-// Default constructor
-KeyPointerPair::KeyPointerPair() : key(""), record(nullptr) {}
-
-// Constructor initializing all attributes
-KeyPointerPair::KeyPointerPair(string key, string* record) : key(key), record(record) {}
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~ LeafNode ~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-// Default constructor
-LeafNode::LeafNode() {
-    for (int i = 0; i < n; i++) {
-        kppArray[i] = KeyPointerPair();
-    }
-
-    nextNode = nullptr;
-}
-
-// Constructor initializing all attributes
-LeafNode::LeafNode(KeyPointerPair initialKpp[n], LeafNode* nextNode) {
-    // Copy the values from argument to attribute
-    for (int i = 0; i < n; ++i) {
-        kppArray[i] = initialKpp[i];
-    }
-
-    this->nextNode = nextNode;
-};
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~ NonLeafNode ~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-// Default constructor
-NonLeafNode::NonLeafNode() {
-    for (int i = 0; i < n; i++) {
-        keyArray[i] = "";
-    }
-    for (int i = 0; i < n + 1; i++) {
-        ptrArray[i] = nullptr;
-    }
-}
-
-// Constructor initializing all attributes
-NonLeafNode::NonLeafNode(Node* initialPtrArray[n + 1], string initialKeyArray[n]) {
-    // Copy the values from argument to attribute
-    for (int i = 0; i < n + 1; ++i) {
-        ptrArray[i] = initialPtrArray[i];
-    }
-    for (int i = 0; i < n; ++i) {
-        keyArray[i] = initialKeyArray[i];
-    }
-}
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~ BPTree ~~~~~~~~~~~~~~~~~~~~~~~~
-*/
 int BPTree::getTreeHeight() {
     if (root == nullptr) {
         // Empty tree
@@ -89,11 +27,11 @@ int BPTree::getTreeHeight() {
     }
 }
 
-vector<string*> BPTree::exactSearch(string key) {
+vector<tuple<int, int>> BPTree::exactSearch(int key) {
     Node* cur = getLeftmostLeafNodeLessThan(key);
 
     // For each exact match, store the resulting pointer
-    vector<string*> results;
+    vector<tuple<int, int>> results;
     LeafNode* leafNode = dynamic_cast<LeafNode*>(cur);
     bool isSearching = true; // keep track of whether the next LeafNode still needs to be searched or not
 
@@ -105,7 +43,8 @@ vector<string*> BPTree::exactSearch(string key) {
             
             // Check if exact match
             if (key == kpp.key) {
-                results.push_back(kpp.record);
+                tuple<int, int> recordPtr = make_tuple(kpp.blockId, kpp.blockOffset);
+                results.push_back(recordPtr);
             } else if (key > kpp.key) {
 
                 // The rest of the keys are greater than the target
@@ -125,11 +64,11 @@ vector<string*> BPTree::exactSearch(string key) {
     return results;
 }
 
-vector<string*> BPTree::rangeSearch(int low, int high) {
-    Node* cur = getLeftmostLeafNodeLessThan(to_string(low));
+vector<tuple<int, int>> BPTree::rangeSearch(int low, int high) {
+    Node* cur = getLeftmostLeafNodeLessThan(low);
 
     // For each exact match, store the resulting pointer
-    vector<string*> results;
+    vector<tuple<int, int>> results;
     LeafNode* leafNode = dynamic_cast<LeafNode*>(cur);
     bool isSearching = true; // keep track of whether the next LeafNode still needs to be searched or not
 
@@ -140,9 +79,10 @@ vector<string*> BPTree::rangeSearch(int low, int high) {
         for (KeyPointerPair kpp : leafNode->kppArray) {
             
             // Check if within range
-            if (low < stoi(kpp.key) && high > stoi(kpp.key)) {
-                results.push_back(kpp.record);
-            } else if (high < stoi(kpp.key)) {
+            if (low < kpp.key && high > kpp.key) {
+                tuple<int, int> recordPtr = make_tuple(kpp.blockId, kpp.blockOffset);
+                results.push_back(recordPtr);
+            } else if (high < kpp.key) {
 
                 // The rest of the keys are greater than the upper bound
                 // No need to search anymore
@@ -171,7 +111,7 @@ int BPTree::getNumNodes() {
     Node* cur;
     while (!nodeStack.empty()) {
         // Pop a value from the stack
-        cur = nodeStack.top();
+        cur = nodeStack.top(); 
         nodeStack.pop();
         numNodes++;
 
@@ -192,53 +132,94 @@ int BPTree::getNumNodes() {
                     nodeStack.push(ptr);
                 }
             }
+
+            // // For debugging purposes
+            // // Dump all of the keys in this node
+
+            // // Traverse through one whole Node
+            // int keysOfNode[n];
+            // int key;
+            // for (int i = 0; i < n; i++) {
+            //     key = nonLeafNode->keyArray[i];
+            //     if (key != nullInt) {
+            //         // Add all non-null keys into temporary string array
+            //         keysOfNode[i] = key;
+            //     } else {
+            //         keysOfNode[i] = nullInt;
+            //     }
+            // }
+
+            // // Print these keys out
+            // cout << "(";
+            // int length = sizeof(keysOfNode)/sizeof(keysOfNode[0]);
+            // for (int i = 0; i < length; i++) {
+            //     if (keysOfNode[i] != nullInt) {
+            //         cout << keysOfNode[i];
+            //     }
+
+            //     // Print a comma
+            //     if (i != length - 1) {
+            //         cout << ",";
+            //     }
+            // }
+            // cout << ") & ";
         }
     }
 
     return numNodes;
 }
 
-vector<string[n]> BPTree::displayLeafNodes() {
-    vector<string[n]> results;
-    Node* cur = getLeftmostLeafNodeLessThan(""); // go to leftmost LeafNode directly
+void BPTree::displayLeafNodes() {
+    Node* cur = getLeftmostLeafNodeLessThan(nullInt); // go to leftmost LeafNode directly
 
     LeafNode* leafNode = dynamic_cast<LeafNode*>(cur);
     do {
-        string keysOfNode[n]; // keys for this node
+        int keysOfNode[n]; // keys for this node
 
         // Traverse through one whole Node
         for (int i = 0; i < n; i++) {
-            string key = leafNode->kppArray[i].key;
-            if (key != "") {
+            int key = leafNode->kppArray[i].key;
+            if (key != nullInt) {
                 // Add all non-null keys into temporary string array
                 keysOfNode[i] = key;
             } else {
-                break;
+                keysOfNode[i] = nullInt;
             }
         }
 
-        // Add this string array into result
-        results.push_back(keysOfNode);
+        // Print these keys out
+        cout << "(";
+        int length = sizeof(keysOfNode)/sizeof(keysOfNode[0]);
+        for (int i = 0; i < length; i++) {
+            if (keysOfNode[i] != nullInt) {
+                cout << keysOfNode[i];
+            }
+
+            // Print a comma
+            if (i != length - 1) {
+                cout << ",";
+            }
+        }
+        cout << ") -> ";
 
         // Traverse to next LeafNode in linked list
         cur = leafNode->nextNode;
         leafNode = dynamic_cast<LeafNode*>(cur);
 
     } while (cur != nullptr);
-
-    return results;
 }
 
-void BPTree::insertKey(string key, string* record) {
+void BPTree::insertKey(int key, int blockId, int blockOffset) {
     // If the B+ tree is empty, create a new LeafNode and insert there
     if (root == nullptr) {
         // Create new LeafNode
-        LeafNode newLeafNode = LeafNode();
-        newLeafNode.kppArray[0].key = key;
-        newLeafNode.kppArray[0].record = record;
+        LeafNode* newLeafNode = new LeafNode();
+        newLeafNode->kppArray[0].key = key;
+        newLeafNode->kppArray[0].blockId = blockId;
+        newLeafNode->kppArray[0].blockOffset = blockOffset;
 
         // Assign root to new LeafNode
-        root = &newLeafNode;
+        root = newLeafNode;
 
         return;
     }
@@ -250,9 +231,9 @@ void BPTree::insertKey(string key, string* record) {
     bool isFull = true;
     for (KeyPointerPair kpp : targetNode->kppArray) {
         // isFull will be set to false if at least one key is missing
-        if (kpp.key == "") {
+        if (kpp.key == nullInt) {
             isFull = false;
-            return;
+            break;
         }
     }
 
@@ -265,11 +246,17 @@ void BPTree::insertKey(string key, string* record) {
         bool isInserted = false; // Check if new key is already inserted
         for (KeyPointerPair kpp : targetNode->kppArray) {
             if (key < kpp.key && !isInserted) {
-                KeyPointerPair newKpp = KeyPointerPair(key, record);
+                KeyPointerPair newKpp = KeyPointerPair(key, blockId, blockOffset);
                 tempKpps[tempKppsIndex++] = newKpp;
                 isInserted = true;
             }
             tempKpps[tempKppsIndex++] = kpp;
+        }
+        if (!isInserted) {
+            // The new key is bigger than all other keys
+            KeyPointerPair newKpp = KeyPointerPair(key, blockId, blockOffset);
+            tempKpps[tempKppsIndex++] = newKpp;
+            isInserted = true;
         }
 
         // Determine the middle element of the temp list
@@ -279,21 +266,31 @@ void BPTree::insertKey(string key, string* record) {
         KeyPointerPair middleKpp = tempKpps[middleIndex];
 
         // Split the LeafNode into two LeafNodes
-        LeafNode newLeafNode = LeafNode();
-        for(int i = middleIndex; i < n; i++) {
+        LeafNode* newLeafNode = new LeafNode();
+        int nodeIndex = 0;
+        for(int i = middleIndex; i < n + 1; i++) {
             // Insert middle element onwards to new LeafNode
-            newLeafNode.kppArray[i].key = tempKpps[i].key;
-            newLeafNode.kppArray[i].record = tempKpps[i].record;
+            newLeafNode->kppArray[nodeIndex].key = tempKpps[i].key;
+            newLeafNode->kppArray[nodeIndex].blockId = tempKpps[i].blockId;
+            newLeafNode->kppArray[nodeIndex].blockOffset = tempKpps[i].blockOffset;
+            nodeIndex++;
         }
-        for(int i = middleIndex + 1; i < n; i++) {
-            // Then, empty all elements transferred to new LeafNode
-            targetNode->kppArray[i].key = "";
-            targetNode->kppArray[i].record = nullptr;
+        for(int i = 0; i < n; i++) {
+            // Empty the target node
+            targetNode->kppArray[i].key = nullInt;
+            targetNode->kppArray[i].blockId = nullInt;
+            targetNode->kppArray[i].blockOffset = nullInt;
+        }
+        for(int i = 0; i < middleIndex ; i++) {
+            // Rewrite the elements in the target LeafNode
+            targetNode->kppArray[i].key = tempKpps[i].key;
+            targetNode->kppArray[i].blockId = tempKpps[i].blockId;
+            targetNode->kppArray[i].blockOffset = tempKpps[i].blockOffset;
         }
         
         // Reassign pointer of the target LeafNode and new LeafNode
-        newLeafNode.nextNode = targetNode->nextNode;
-        targetNode->nextNode = &newLeafNode;
+        newLeafNode->nextNode = targetNode->nextNode;
+        targetNode->nextNode = newLeafNode;
 
         // Determine the parent of the target node
         vector<NonLeafNode*> nodePath = getNodePath(middleKpp);
@@ -302,17 +299,20 @@ void BPTree::insertKey(string key, string* record) {
 
             // Find the attributes required to create a new
             // NonLeafNode instance as parent node
-            NonLeafNode parentNode = NonLeafNode();
-            parentNode.ptrArray[0] = targetNode;
-            parentNode.keyArray[0] = middleKpp.key;
+            NonLeafNode* parentNode = new NonLeafNode();
+            parentNode->ptrArray[0] = targetNode;
+            parentNode->keyArray[0] = middleKpp.key;
 
             // The pointer after the key in the parent node
             // Should point to the newly created LeafNode
-            parentNode.ptrArray[1] = &newLeafNode;
+            parentNode->ptrArray[1] = newLeafNode;
+
+            // Set parent node as root node
+            root = parentNode;
         } else {
             // Node has non-empty parent
             // Insert new key into parent
-            insertIntoNonLeafNodes(middleKpp.key, nodePath, &newLeafNode);
+            insertIntoNonLeafNodes(middleKpp.key, nodePath, newLeafNode);
         }
     } else {
         // Node is not yet full
@@ -322,24 +322,25 @@ void BPTree::insertKey(string key, string* record) {
         for (KeyPointerPair kpp : targetNode->kppArray) {
 
             // Find the first key greater than the inserting key
-            if (key > kpp.key) {
-                return;
+            // Or empty key
+            if (key < kpp.key || kpp.key == nullInt) {
+                break;
             }
             targetIndex++;
         }
 
         // Push all of the KeyPointerPairs back until the targetIndex
-        for (int i = n - 2; i >= targetIndex; i++) {
+        for (int i = n - 2; i >= targetIndex; i--) {
             targetNode->kppArray[i+1] = targetNode->kppArray[i];
         }
 
         // Insert the KeyPointerPair into the empty slot
-        targetNode->kppArray[targetIndex] = KeyPointerPair(key, record);
+        targetNode->kppArray[targetIndex] = KeyPointerPair(key, blockId, blockOffset);
     }
     
 }
 
-Node* BPTree::getLeftmostLeafNodeLessThan(string key) {
+Node* BPTree::getLeftmostLeafNodeLessThan(int key) {
     Node* cur = root;
 
     // Check if cur is a LeafNode. If not, check downwards 
@@ -348,8 +349,8 @@ Node* BPTree::getLeftmostLeafNodeLessThan(string key) {
 
         // Determine the next node to go downwards
         int index = 0;
-        for (string i : nonLeafNode->keyArray) {
-            if (key > i) {
+        for (double i : nonLeafNode->keyArray) {
+            if (key > i && i != nullInt) {
                 index++;
             } else {
                 break;
@@ -379,8 +380,8 @@ vector<NonLeafNode*> BPTree::getNodePath(KeyPointerPair kpp) {
 
         // Determine the next node to go downwards
         int index = 0;
-        for (string i : nonLeafNode->keyArray) {
-            if (kpp.key > i) {
+        for (double i : nonLeafNode->keyArray) {
+            if (kpp.key > i && i != nullInt) {
                 index++;
             } else {
                 break;
@@ -392,13 +393,13 @@ vector<NonLeafNode*> BPTree::getNodePath(KeyPointerPair kpp) {
         nodePath.push_back(nonLeafNode);
         
         // Check while loop condition
-        cur = dynamic_cast<NonLeafNode*>(cur);
+        nonLeafNode = dynamic_cast<NonLeafNode*>(cur);
     } 
 
     return nodePath;
 }
 
-void BPTree::insertIntoNonLeafNodes(string key, vector<NonLeafNode*> nodePath, Node* nextPtr) {
+void BPTree::insertIntoNonLeafNodes(int key, vector<NonLeafNode*> nodePath, Node* nextPtr) {
     // Retrieve current NonLeafNode which is right above the previous
     // NonLeafNode that was being inspected
     NonLeafNode* cur = nodePath.back();
@@ -406,11 +407,11 @@ void BPTree::insertIntoNonLeafNodes(string key, vector<NonLeafNode*> nodePath, N
 
     // Check whether this node is already full
     bool isFull = true;
-    for (string key : cur->keyArray) {
+    for (int key : cur->keyArray) {
         // isFull will be set to false if at least one key is missing
-        if (key == "") {
+        if (key == nullInt) {
             isFull = false;
-            return;
+            break;
         }
     }
 
@@ -418,17 +419,17 @@ void BPTree::insertIntoNonLeafNodes(string key, vector<NonLeafNode*> nodePath, N
         // If current node is full, then need to involve parent node in insertion
 
         // Create a sorted temporary list of keys
-        string tempKeys[n + 1];
+        double tempKeys[n + 1];
         int tempKeysIndex = 0;
         int insertPtrIndex = 0; // Track where the pointer should be inserted
         bool isInserted = false; // Check if new key is already inserted
-        for (string i : cur->keyArray) {
-            if (key < i && !isInserted) {
+        for (int curKey : cur->keyArray) {
+            if (key < curKey && !isInserted) {
                 tempKeys[tempKeysIndex++] = key;
                 insertPtrIndex = tempKeysIndex;
                 isInserted = true;
             }
-            tempKeys[tempKeysIndex++] = i;
+            tempKeys[tempKeysIndex++] = curKey;
         }
 
         // Create a sorted temporary list of pointers
@@ -448,25 +449,35 @@ void BPTree::insertIntoNonLeafNodes(string key, vector<NonLeafNode*> nodePath, N
         // Index is half rounded down
         // Middle element will be present in parent node
         int middleIndex = floor((n + 1) / 2);
-        string middleKey = tempKeys[middleIndex];
+        int middleKey = tempKeys[middleIndex];
 
         // Split the NonLeafNode into two NonLeafNodes
-        NonLeafNode newNonLeafNode = NonLeafNode();
-        for(int i = middleIndex + 1; i < n; i++) {
-            // Insert middle element + 1 key onwards to new NonLeafNode
-            newNonLeafNode.keyArray[i] = tempKeys[i];
-        }
+        NonLeafNode* newNonLeafNode = new NonLeafNode();
+        int nodeIndex = 0;
         for(int i = middleIndex + 1; i < n + 1; i++) {
+            // Insert middle element + 1 key onwards to new NonLeafNode
+            newNonLeafNode->keyArray[nodeIndex++] = tempKeys[i];
+        }
+        nodeIndex = 0;
+        for(int i = middleIndex + 1; i < n + 2; i++) {
             // Insert middle element + 1 pointer onwards to new NonLeafNode
-            newNonLeafNode.ptrArray[i] = tempPtrs[i];
+            newNonLeafNode->ptrArray[nodeIndex++] = tempPtrs[i];
         }
-        for(int i = middleIndex; i < n; i++) {
-            // Then, empty middle key and all keys transferred to new LeafNode
-            cur->keyArray[i] = "";
+        for(int i = 0; i < n; i++) {
+            // Empty all keys from current node
+            cur->keyArray[i] = nullInt;
         }
-        for(int i = middleIndex + 1; i < n; i++) {
-            // And empty all pointers transferred to new LeafNode
+        for(int i = 0; i < n + 1; i++) {
+            // Empty all pointers from current node
             cur->ptrArray[i] = nullptr;
+        }
+        for(int i = 0; i < middleIndex; i++) {
+            // Rewrite the keys in the current node
+            cur->keyArray[i] = tempKeys[i];
+        }
+        for(int i = 0; i < middleIndex + 1; i++) {
+            // And also rewrite pointers for current node
+            cur->ptrArray[i] = tempPtrs[i];
         }
 
         // Determine the parent of the target node
@@ -475,38 +486,42 @@ void BPTree::insertIntoNonLeafNodes(string key, vector<NonLeafNode*> nodePath, N
 
             // Find the attributes required to create a new
             // NonLeafNode instance as parent node
-            NonLeafNode parentNode = NonLeafNode();
-            parentNode.ptrArray[0] = cur;
-            parentNode.keyArray[0] = middleKey;
+            NonLeafNode* parentNode = new NonLeafNode();
+            parentNode->ptrArray[0] = cur;
+            parentNode->keyArray[0] = middleKey;
 
             // The pointer after the key in the parent node
             // Should point to the newly created NonLeafNode
-            parentNode.ptrArray[1] = &newNonLeafNode;
+            parentNode->ptrArray[1] = newNonLeafNode;
+
+            // Set the root to this parent
+            root = parentNode;
         } else {
             // Node has non-empty parent
             // Insert new key into parent
-            insertIntoNonLeafNodes(middleKey, nodePath, &newNonLeafNode);
+            insertIntoNonLeafNodes(middleKey, nodePath, newNonLeafNode);
         }
     } else {
         // Node is not yet full
         // Insert the key into the right place, and then push all other
         // keys and pointers backwards
         int targetIndex = 0;
-        for (string i : cur->keyArray) {
+        for (int curKey : cur->keyArray) {
 
             // Find the first key greater than the inserting key
-            if (key > i) {
-                return;
+            // Or empty key
+            if (key < curKey || curKey == nullInt) {
+                break;
             }
             targetIndex++;
         }
 
         // Push all of the pointers back until after the targetIndex
-        for (int i = n - 1; i >= targetIndex + 1; i++) {
+        for (int i = n - 1; i >= targetIndex + 1; i--) {
             cur->ptrArray[i+1] = cur->ptrArray[i];
         }
         // Push all of the keys back until the targetIndex
-        for (int i = n - 2; i >= targetIndex; i++) {
+        for (int i = n - 2; i >= targetIndex; i--) {
             cur->keyArray[i+1] = cur->keyArray[i];
         }
 
