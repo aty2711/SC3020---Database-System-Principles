@@ -1,6 +1,7 @@
 #include "database.h"
 #include <stdexcept>
 #include <iostream>
+#include <algorithm>
 
 Database::Database(uint databaseSize) : diskManager(databaseSize)
 {
@@ -168,6 +169,10 @@ std::vector<Record> Database::retrieveRecordByLinearScan(int attributeValue)
     std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
     std::cout << "Number of records: " << recordCount << std::endl;
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
+
+    std::sort(queryResult.begin(), queryResult.end(), [](const Record &a, const Record &b)
+              { return a.getTconst() < b.getTconst(); });
+
     return queryResult;
 }
 
@@ -207,7 +212,7 @@ std::vector<Record> Database::retrieveRangeRecordsByLinearScan(int start, int en
         Block block = diskManager.readBlock(blockId);
         timeTaken += diskManager.simulateBlockAccessTime(blockId);
         std::vector<Record> blockRecords = block.retrieveAllRecords();
-        
+
         for (auto &record : blockRecords)
         {
             if (record.getNumVotes() >= start && record.getNumVotes() <= end)
@@ -218,7 +223,11 @@ std::vector<Record> Database::retrieveRangeRecordsByLinearScan(int start, int en
         }
     }
     std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
-    std::cout << "Number of records: "<< recordCount << std::endl;
+    std::cout << "Number of records: " << recordCount << std::endl;
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
+
+    std::sort(queryResult.begin(), queryResult.end(), [](const Record &a, const Record &b)
+              { return a.getTconst() < b.getTconst(); });
+
     return queryResult;
 }
