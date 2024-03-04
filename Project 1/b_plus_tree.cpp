@@ -92,7 +92,7 @@ vector<tuple<int, int>> BPTree::rangeSearch(int low, int high)
         {
 
             // Check if within range
-            if (low < kpp.key && high > kpp.key)
+            if (low <= kpp.key && high >= kpp.key)
             {
                 tuple<int, int> recordPtr = make_tuple(kpp.blockId, kpp.blockOffset);
                 results.push_back(recordPtr);
