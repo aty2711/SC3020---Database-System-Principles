@@ -77,17 +77,17 @@ int main()
     cout << "<----------------- Experiment 3: retrieve those movies with the numVotes == 500 -------->" << endl;
     cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
     vector<Record> records = db.retrieveRecordByBPTree(500);
-    for (Record record : records)
-    {
-        record.print();
-    }
+    // for (Record record : records)
+    // {
+    //     record.print();
+    // }
     cout << "Retrieving Records with numVotes == 500 (Linear Scan):" << endl;
     records = db.retrieveRecordByLinearScan(500);
     cout << "Query Result:" << endl;
-    for (Record record : records)
-    {
-        record.print();
-    }
+    // for (Record record : records)
+    // {
+    //     record.print();
+    // }
 
     cout << "\n"
          << endl;
@@ -95,21 +95,21 @@ int main()
     cout << "<----------------- Experiment 4: retrieve those movies with 30,000 <= numVotes <= 40,000 -------->" << endl;
     cout << "Retrieving Records with numVotes between 30000 and 40000 (BPTree):" << endl;
     records = db.retrieveRangeRecordsByBPTree(30000, 40000);
-    for (Record record : records)
-    {
-        record.print();
-    }
+    // for (Record record : records)
+    // {
+    //     record.print();
+    // }
     cout << "Retrieving movies 30,000 <= numVotes <= 40,000 (Linear Scan)" << endl;
     records = db.retrieveRangeRecordsByLinearScan(30000, 40000);
     cout << "Query Result:" << endl;
-    for (Record record : records)
-    {
-        record.print();
-    }
+    // for (Record record : records)
+    // {
+    //     record.print();
+    // }
 
     cout << "<----------------- Experiment 5: delete those movies with numVotes == 1,000 -------->" << endl;
     cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
-    // records = db.retrieveRecordByBPTree(500);
+    records = db.retrieveRecordByBPTree(500);
     // for (Record record : records)
     // {
     //     record.print();
