@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <algorithm>
+#include <iomanip>
 
 Database::Database(uint databaseSize) : diskManager(databaseSize)
 {
@@ -127,6 +128,7 @@ std::vector<Record> Database::retrieveRecordByBPTree(int attributeValue)
 {
     double timeTaken = 0;
     int recordCount = 0;
+    double totalAverageRating = 0;
     std::vector<Record> records;
     std::vector<std::tuple<int, int>> recordAddresses = bptree.exactSearch(attributeValue);
     for (auto &recordAddress : recordAddresses)
@@ -137,11 +139,16 @@ std::vector<Record> Database::retrieveRecordByBPTree(int attributeValue)
         Record record = block.retrieveRecord(offset);
         records.push_back(record);
         recordCount++;
+        totalAverageRating += record.getAverageRating();
         timeTaken += diskManager.simulateBlockAccessTime(blockId);
     }
+
+    double averageOfAverageRating = totalAverageRating / recordCount;
+
     std::cout << "Number of blocks accessed: " << recordAddresses.size() << std::endl;
     std::cout << "Number of records: " << recordCount << std::endl;
     std::cout << "Time taken for bpt scan: " << timeTaken << "ms" << std::endl;
+    std::cout << "Average rating: " << std::fixed << std::setprecision(4) << averageOfAverageRating << std::endl;
     return records;
 }
 
@@ -151,7 +158,7 @@ std::vector<Record> Database::retrieveRecordByLinearScan(int attributeValue)
     std::vector<Record> queryResult;
     double timeTaken = 0;
     int recordCount = 0;
-
+    double totalAverageRating = 0;
     for (auto &blockId : blockIds)
     {
         Block block = diskManager.readBlock(blockId);
@@ -163,12 +170,15 @@ std::vector<Record> Database::retrieveRecordByLinearScan(int attributeValue)
             {
                 queryResult.push_back(record);
                 recordCount++;
+                totalAverageRating += record.getAverageRating();
             }
         }
     }
+    double averageOfAverageRating = totalAverageRating / recordCount;
     std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
     std::cout << "Number of records: " << recordCount << std::endl;
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
+    std::cout << "Average rating: " << std::fixed << std::setprecision(4) << averageOfAverageRating << std::endl;
 
     std::sort(queryResult.begin(), queryResult.end(), [](const Record &a, const Record &b)
               { return a.getTconst() < b.getTconst(); });
@@ -181,6 +191,7 @@ std::vector<Record> Database::retrieveRangeRecordsByBPTree(int start, int end)
     double timeTaken = 0;
     std::vector<Record> records;
     int recordCount = 0;
+    double totalAverageRating = 0;
     std::vector<std::tuple<int, int>> recordAddresses = bptree.rangeSearch(start, end);
     for (auto &recordAddress : recordAddresses)
     {
@@ -190,11 +201,14 @@ std::vector<Record> Database::retrieveRangeRecordsByBPTree(int start, int end)
         Record record = block.retrieveRecord(offset);
         records.push_back(record);
         recordCount++;
+        totalAverageRating += record.getAverageRating();
         timeTaken += diskManager.simulateBlockAccessTime(blockId);
     }
+    double averageOfAverageRating = totalAverageRating / recordCount;
     std::cout << "Number of blocks accessed: " << recordAddresses.size() << std::endl;
     std::cout << "Number of records: " << recordCount << std::endl;
     std::cout << "Time taken for bpt scan: " << timeTaken << "ms" << std::endl;
+    std::cout << "Average rating: " << std::fixed << std::setprecision(4) << averageOfAverageRating << std::endl;
     return records;
 }
 
@@ -205,6 +219,7 @@ std::vector<Record> Database::retrieveRangeRecordsByLinearScan(int start, int en
     std::vector<Record> queryResult;
     double timeTaken = 0;
     int recordCount = 0;
+    double totalAverageRating = 0;
 
     for (auto &blockId : blockIds)
     {
@@ -219,12 +234,17 @@ std::vector<Record> Database::retrieveRangeRecordsByLinearScan(int start, int en
             {
                 queryResult.push_back(record);
                 recordCount++;
+                totalAverageRating += record.getAverageRating();
             }
         }
     }
+
+    double averageOfAverageRating = totalAverageRating / recordCount;
+
     std::cout << "Number of blocks accessed: " << blockIds.size() << std::endl;
     std::cout << "Number of records: " << recordCount << std::endl;
     std::cout << "Time taken for linear scan: " << timeTaken << "ms" << std::endl;
+    std::cout << "Average rating: " << std::fixed << std::setprecision(4) << averageOfAverageRating << std::endl;
 
     std::sort(queryResult.begin(), queryResult.end(), [](const Record &a, const Record &b)
               { return a.getTconst() < b.getTconst(); });
