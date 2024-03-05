@@ -3,7 +3,7 @@
 using namespace std;
 
 // Maximum number of keys that a LeafNode or NonLeafNode can hold
-const int n = 10; // TODO: Change once this can be calculated
+const int n = 16;
 
 // Integer value to indicate the key is empty
 const double nullInt = -1;
