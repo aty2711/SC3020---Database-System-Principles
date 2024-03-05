@@ -39,6 +39,9 @@ class BPTree {
         */
         void displayLeafNodes();
 
+        // Prints out the keys of the root node
+        void displayRootNode();
+
         // Insert a new key into the B+ tree
         void insertKey(int key, int blockId, int blockOffset);
 

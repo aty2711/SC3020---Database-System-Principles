@@ -274,6 +274,45 @@ void BPTree::displayLeafNodes()
     } while (cur != nullptr);
 }
 
+void BPTree::displayRootNode()
+{
+    NonLeafNode* nonLeafNode = dynamic_cast<NonLeafNode*>(root);
+    int keysOfNode[n]; // keys for this node
+
+    // Traverse through one whole Node
+    for (int i = 0; i < n; i++)
+    {
+        int key = nonLeafNode->keyArray[i];
+        if (key != nullInt)
+        {
+            // Add all non-null keys into temporary string array
+            keysOfNode[i] = key;
+        }
+        else
+        {
+            keysOfNode[i] = nullInt;
+        }
+    }
+
+    // Print these keys out
+    cout << "(";
+    int length = sizeof(keysOfNode) / sizeof(keysOfNode[0]);
+    for (int i = 0; i < length; i++)
+    {
+        if (keysOfNode[i] != nullInt)
+        {
+            cout << keysOfNode[i];
+        }
+
+        // Print a comma
+        if (i != length - 1)
+        {
+            cout << ",";
+        }
+    }
+    cout << ")";
+}
+
 void BPTree::insertKey(int key, int blockId, int blockOffset)
 {
     // If the B+ tree is empty, create a new LeafNode and insert there
