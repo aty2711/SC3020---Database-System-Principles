@@ -85,6 +85,7 @@ int main()
     cout << "<----------------- Experiment 3: retrieve those movies with the numVotes == 500 -------->" << endl;
     cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
     vector<Record> records = db.retrieveRecordByBPTree(500);
+    cout << "Number of index nodes of B+ tree accessed: " << bptree.getNumIndexNodes(500) << endl;
     // for (Record record : records)
     // {
     //     record.print();
@@ -103,6 +104,7 @@ int main()
     cout << "<----------------- Experiment 4: retrieve those movies with 30,000 <= numVotes <= 40,000 -------->" << endl;
     cout << "Retrieving Records with numVotes between 30000 and 40000 (BPTree):" << endl;
     records = db.retrieveRangeRecordsByBPTree(30000, 40000);
+    cout << "Number of index nodes of B+ tree accessed: " << bptree.getNumIndexNodes(30000) << endl;
     // for (Record record : records)
     // {
     //     record.print();
@@ -125,6 +127,11 @@ int main()
     cout << "Deleting movies with numVotes == 1,000" << endl;
     cout << "Record count before deletion: " << diskManager.getNumRecordsStored() << endl;
     db.deleteRecordByBPTree(1000);
+    cout << "Number of nodes of B+ tree after deletion: " << bptree.getTotalNumNodes() << endl;
+    cout << "Number of levels of B+ tree after deletion: " << bptree.getTreeHeight() << endl;
+    cout << "Content of root node of B+ tree after deletion: ";
+    bptree.displayRootNode();
+    cout << endl;
     // db.deleteRecordsByLinearScan(1000);
     cout << "Record count before deletion: " << diskManager.getNumRecordsStored() << endl;
     records = db.retrieveRecordByLinearScan(1000);
