@@ -24,8 +24,15 @@ class BPTree {
         // Search for key within a range of values
         vector<tuple<int, int>> rangeSearch(int low, int high);
 
+        /**
+         * Return number of non-leaf nodes scanned
+         * To be used together with either exactSearch() or rangeSearch()
+         * For rangeSearch(), use the argument fow 'low' as the argument for this function
+        */
+        int getNumIndexNodes(int key);
+
         // Return total number of LeafNodes and NonLeafNodes
-        int getNumNodes();
+        int getTotalNumNodes();
 
         /**
          * Prints out all of the leaf nodes

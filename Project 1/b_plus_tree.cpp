@@ -117,7 +117,41 @@ vector<tuple<int, int>> BPTree::rangeSearch(int low, int high)
     return results;
 }
 
-int BPTree::getNumNodes()
+int BPTree::getNumIndexNodes(int key)
+{
+    Node *cur = root;
+    int num = 0;
+
+    // Check if cur is a LeafNode. If not, check downwards
+    NonLeafNode *nonLeafNode = dynamic_cast<NonLeafNode *>(cur);
+    while (nonLeafNode != nullptr)
+    {
+        // This node is a non-leaf node, increment answer by 1
+        num++;
+
+        // Determine the next node to go downwards
+        int index = 0;
+        for (double i : nonLeafNode->keyArray)
+        {
+            if (key > i && i != nullInt)
+            {
+                index++;
+            }
+            else
+            {
+                break;
+            }
+        }
+        cur = nonLeafNode->ptrArray[index];
+
+        // Check while loop condition
+        nonLeafNode = dynamic_cast<NonLeafNode *>(cur);
+    }
+
+    return num;
+}
+
+int BPTree::getTotalNumNodes()
 {
     // Use DFS to traverse through all nodes
     int numNodes = 0;
