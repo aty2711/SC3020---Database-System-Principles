@@ -118,8 +118,8 @@ int main()
     // }
 
     cout << "<----------------- Experiment 5: delete those movies with numVotes == 1,000 -------->" << endl;
-    cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
-    records = db.retrieveRecordByBPTree(500);
+    cout << "Retrieving Records with numVotes equal to 1000 (BPTree):" << endl;
+    records = db.retrieveRecordByBPTree(1000);
     // for (Record record : records)
     // {
     //     record.print();

@@ -35,7 +35,7 @@ int BPTree::getTreeHeight()
 
 vector<tuple<int, int>> BPTree::exactSearch(int key)
 {
-    Node *cur = getLeftmostLeafNodeLessThan(key);
+    Node *cur = getLeafNode(key, false);
 
     // For each exact match, store the resulting pointer
     vector<tuple<int, int>> results;
@@ -77,7 +77,7 @@ vector<tuple<int, int>> BPTree::exactSearch(int key)
 
 vector<tuple<int, int>> BPTree::rangeSearch(int low, int high)
 {
-    Node *cur = getLeftmostLeafNodeLessThan(low);
+    Node *cur = getLeafNode(low, false);
 
     // For each exact match, store the resulting pointer
     vector<tuple<int, int>> results;
@@ -227,7 +227,7 @@ int BPTree::getTotalNumNodes()
 
 void BPTree::displayLeafNodes()
 {
-    Node *cur = getLeftmostLeafNodeLessThan(nullInt); // go to leftmost LeafNode directly
+    Node *cur = getLeafNode(nullInt, false); // go to leftmost LeafNode directly
 
     LeafNode *leafNode = dynamic_cast<LeafNode *>(cur);
     do
@@ -331,7 +331,7 @@ void BPTree::insertKey(int key, int blockId, int blockOffset)
     }
 
     // Check where to insert the key
-    LeafNode *targetNode = dynamic_cast<LeafNode *>(getLeftmostLeafNodeLessThan(key));
+    LeafNode *targetNode = dynamic_cast<LeafNode *>(getLeafNode(key, true));
 
     // Check whether the target node is already full
     bool isFull = true;
@@ -462,7 +462,7 @@ void BPTree::insertKey(int key, int blockId, int blockOffset)
     }
 }
 
-Node *BPTree::getLeftmostLeafNodeLessThan(int key)
+Node *BPTree::getLeafNode(int key, bool insert)
 {
     Node *cur = root;
 
@@ -475,7 +475,18 @@ Node *BPTree::getLeftmostLeafNodeLessThan(int key)
         int index = 0;
         for (double i : nonLeafNode->keyArray)
         {
-            if (key > i && i != nullInt)
+            // If key argument is equal to current key
+            bool direction;
+            if (insert) 
+            {
+                // For insert functions, go to rightmost node
+                direction = key >= i;
+            } else {
+                // For search functions, go to leftmost node
+                direction = key > i;
+            }
+
+            if (direction && i != nullInt)
             {
                 index++;
             }

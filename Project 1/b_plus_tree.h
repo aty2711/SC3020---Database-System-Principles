@@ -52,11 +52,31 @@ class BPTree {
         /**
          * Helper function
          * 
-         * Perform comparisons and tree traversals
-         * to reach the leftmost LeafNode to begin
-         * indexing search results.
+         * Perform comparisons and tree traversals to reach the
+         * desired leaf node.
+         * 
+         * Most of the time, this method performs within the expected
+         * behaviour: to reach the correct leaf node that contains
+         * the key to search for. However, if there are multiple duplicate
+         * keys in a row that spans multiple leaf nodes, then the behaviour
+         * of this method needs to differ:
+         * 
+         * 1. If this method is used for search-related functions, this
+         * function should return the leftmost node containing the given
+         * key. This is so that the search can be done left-to-right.
+         * 
+         * 2. If this method is used for insert-related functions, this
+         * function should return the rightmost node containing the given
+         * key. This is so that overflow of duplicate keys occur to the 
+         * right of the parent key instead of to the left, to maintain
+         * ascending order of keys in leaf nodes.
+         * 
+         * @param key The key value to retrieve the node of
+         * @param insert Specifies the context of the function. Set to true
+         * if this is called in an insert-related function. Set to false if
+         * this is called in a search-related function
         */
-        Node* getLeftmostLeafNodeLessThan(int key);
+        Node* getLeafNode(int key, bool insert);
 
         /**
          * Helper function for insertKey()
