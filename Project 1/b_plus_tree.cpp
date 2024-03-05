@@ -583,12 +583,19 @@ void BPTree::insertIntoNonLeafNodes(int key, vector<NonLeafNode *> nodePath, Nod
             }
             tempKeys[tempKeysIndex++] = curKey;
         }
+        if (!isInserted)
+        {
+            // The new key is bigger than all other keys
+            tempKeys[tempKeysIndex++] = key;
+            insertPtrIndex = tempKeysIndex;
+            isInserted = true;
+        }
 
         // Create a sorted temporary list of pointers
         Node *tempPtrs[n + 2];
         int tempPtrsIndex = 0;
         isInserted = false;
-        for (int i = 0; i < n + 2; i++)
+        for (int i = 0; i < n + 1; i++)
         {
             if (i == insertPtrIndex)
             {
@@ -596,6 +603,12 @@ void BPTree::insertIntoNonLeafNodes(int key, vector<NonLeafNode *> nodePath, Nod
                 isInserted = true;
             }
             tempPtrs[tempPtrsIndex++] = cur->ptrArray[i];
+        }
+        if (!isInserted)
+        {
+            // Insert pointer at tail end
+            tempPtrs[tempPtrsIndex++] = nextPtr;
+            isInserted = true;
         }
 
         // Determine the middle element of the temp list
