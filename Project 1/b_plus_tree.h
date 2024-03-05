@@ -99,7 +99,7 @@ class BPTree {
          * @param nextPtr After appending the key, this pointer will be at the right
          * of the key
         */
-        void insertIntoNonLeafNodes(int key, vector<NonLeafNode*> nodePath, Node* nextPtr);
+        void insertInternalNode(int key, vector<NonLeafNode*> nodePath, Node* nextPtr);
 
         //get num keys in leaf node
         int getNumKeys(LeafNode* node);

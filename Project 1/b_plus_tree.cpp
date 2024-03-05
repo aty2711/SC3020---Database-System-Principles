@@ -430,7 +430,7 @@ void BPTree::insertKey(int key, int blockId, int blockOffset)
         {
             // Node has non-empty parent
             // Insert new key into parent
-            insertIntoNonLeafNodes(middleKpp.key, nodePath, newLeafNode);
+            insertInternalNode(middleKpp.key, nodePath, newLeafNode);
         }
     }
     else
@@ -545,7 +545,7 @@ vector<NonLeafNode *> BPTree::getNodePath(KeyPointerPair kpp)
     return nodePath;
 }
 
-void BPTree::insertIntoNonLeafNodes(int key, vector<NonLeafNode *> nodePath, Node *nextPtr)
+void BPTree::insertInternalNode(int key, vector<NonLeafNode *> nodePath, Node *nextPtr)
 {
     // Retrieve current NonLeafNode which is right above the previous
     // NonLeafNode that was being inspected
@@ -674,7 +674,7 @@ void BPTree::insertIntoNonLeafNodes(int key, vector<NonLeafNode *> nodePath, Nod
         {
             // Node has non-empty parent
             // Insert new key into parent
-            insertIntoNonLeafNodes(middleKey, nodePath, newNonLeafNode);
+            insertInternalNode(middleKey, nodePath, newNonLeafNode);
         }
     }
     else
