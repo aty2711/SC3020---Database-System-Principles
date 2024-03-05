@@ -74,6 +74,14 @@ int main()
     dataFile.close();
     cout << "\n"
          << endl;
+    cout << "<----------------- Experiment 2: Building a B+ Tree --------------->" << endl;
+    cout << "Parameter n = " << n << endl;
+    cout << "Number of Nodes: " << bptree.getTotalNumNodes() << endl;
+    cout << "Number of Levels: " << bptree.getTreeHeight() << endl;
+    cout << "Content of root node: ";
+        bptree.displayRootNode();
+    cout << "\n"
+         << endl;
     cout << "<----------------- Experiment 3: retrieve those movies with the numVotes == 500 -------->" << endl;
     cout << "Retrieving Records with numVotes equal to 500 (BPTree):" << endl;
     vector<Record> records = db.retrieveRecordByBPTree(500);
