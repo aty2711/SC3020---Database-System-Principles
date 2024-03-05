@@ -615,6 +615,7 @@ void BPTree::insertIntoNonLeafNodes(int key, vector<NonLeafNode *> nodePath, Nod
     }
 }
 
+
 void BPTree::deleteKey(int key)
 {
 
@@ -728,7 +729,6 @@ void BPTree::deleteKey(int key)
                 pathIndexes.pop_back();
                 path.pop_back();
             }
-
             else
             {
                 // new leftmost key TODO check if key return is correct
