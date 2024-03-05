@@ -101,14 +101,29 @@ class BPTree {
         */
         void insertInternalNode(int key, vector<NonLeafNode*> nodePath, Node* nextPtr);
 
-        //get num keys in leaf node
+        // Return current number of keys in the target LeafNode
         int getNumKeys(LeafNode* node);
 
+        // Return current number of keys in the target LeafNode
         int getNumKeysNL(NonLeafNode* node);
 
         //remove internal nodes in tree.
-        void removeInternalNode(int key,NonLeafNode *parent,Node *child);
+        void removeInternalNode(int key, NonLeafNode *parent, Node *child);
 
-        //update parent node key with key of child node
-        void updateParentKey(int prevIndex,Node *parent,Node *child,std::vector<NonLeafNode*> &path, std::vector<int> &pathIndexes);
+        /**
+         * Helper function for deleteKey()
+         * 
+         * If the deleted key in the current node is the leftmost key,
+         * then the parent key needs to be updated to reflect the new
+         * leftmost key. Recursively do so upwards until root node is reached.
+         * 
+         * @param prevIndex Array index of the key to be deleted in child node
+         * @param parent Parent node where the key needs to be updated
+         * @param child Child node where the leftmost key is deleted
+         * @param path A vector of all of the nodes from the root till the child node
+         * @param pathIndexes For the corresponding node in the 'path' argument, stores
+         * the index number of the pointer array used for traversal into this 
+         * 'pathIndexes' vector
+        */
+        void updateParentKey(int prevIndex, Node *parent, Node *child, std::vector<NonLeafNode*> &path, std::vector<int> &pathIndexes);
 };

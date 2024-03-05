@@ -712,7 +712,6 @@ void BPTree::insertInternalNode(int key, vector<NonLeafNode *> nodePath, Node *n
     }
 }
 
-
 void BPTree::deleteKey(int key)
 {
 
@@ -1004,7 +1003,6 @@ void BPTree::deleteKey(int key)
     // curNode = dynamic_cast<LeafNode*>(targetNode);
 }
 
-// get num keys in leaf node
 int BPTree::getNumKeys(LeafNode *node)
 {
     int count = 0;
