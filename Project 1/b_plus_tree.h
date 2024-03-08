@@ -126,4 +126,7 @@ class BPTree {
          * 'pathIndexes' vector
         */
         void updateParentKey(int prevIndex, Node *parent, Node *child, std::vector<NonLeafNode*> &path, std::vector<int> &pathIndexes);
+
+        //find parent node of node
+        Node* findParent(Node *current, Node *child);
 };
