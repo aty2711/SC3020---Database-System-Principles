@@ -61,7 +61,7 @@ vector<tuple<int, int>> BPTree::exactSearch(int key)
                 // The rest of the keys are greater than the target
                 // No need to search anymore
                 isSearching = false;
-                break;
+                return results;
             }
             // Otherwise, key is smaller than target, or key is empty.
             // Continue searching the next LeafNode
