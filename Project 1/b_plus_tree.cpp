@@ -55,7 +55,7 @@ vector<tuple<int, int>> BPTree::exactSearch(int key)
                 tuple<int, int> recordPtr = make_tuple(kpp.blockId, kpp.blockOffset);
                 results.push_back(recordPtr);
             }
-            else if (key > kpp.key)
+            else if (key < kpp.key)
             {
 
                 // The rest of the keys are greater than the target
