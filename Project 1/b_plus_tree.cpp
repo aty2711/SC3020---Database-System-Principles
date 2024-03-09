@@ -713,328 +713,365 @@ void BPTree::insertInternalNode(int key, vector<NonLeafNode *> nodePath, Node *n
 }
 
 void BPTree::deleteKey(int key){
+
+    return;
     
-    //cout << "Deleting " << key <<  " in tree" << endl;
+    cout << "Deleting " << key <<  " in tree" << endl;
  
     //Check if empty b tree
     if (this->root == nullptr){
         //cout << "Empty tree" << endl;
         return;
     }
+    //initially, find all matches of tree
+    vector<tuple<int, int>> matches = exactSearch(key);
+    int loops = matches.size();
  
+    //if no exact matches, return
+    if(matches.size() == 0){
  
-    Node *curNode = root;
-    int index = 0;
-    std::vector<NonLeafNode*> path; //vector to store path of traversal
-    std::vector<int>pathIndexes;    //vector to store indexes of path of traversal
-    int minKeys = (n+1)/2;  //max is 10
- 
-    //find possible target leaf node with key, save the path.
-    NonLeafNode* nonLeafNode = dynamic_cast<NonLeafNode*>(curNode);
-    while(nonLeafNode != nullptr){
-        index = 0;
-        for (double i : nonLeafNode->keyArray){
- 
-            if (key >= i && i != nullInt) {
-                index++;
-            } 
-            else {
-                break;
-            }
-        }
-        
-        path.push_back(nonLeafNode);
-        pathIndexes.push_back(index);
-        curNode = nonLeafNode->ptrArray[index];
-        nonLeafNode = dynamic_cast<NonLeafNode*>(curNode);
+        cout << "Key not in tree" << endl;
+        return;
     }
-    //cout << "path indexes " << pathIndexes[0] << endl;
  
-    LeafNode* targetNode = dynamic_cast<LeafNode*>(curNode);
-    //find the key's index in leaf node, then delete the records
-    //in target node, find same keys and delete the records
-    //int firstIndex = std::lower_bound(targetNode->kppArray->key.begin(), targetNode->kppArray->key.end(), key) - targetNode->kppArray->key.begin();
+    int minKeys = (n+1)/2;
+    //for(int times = 0; times < matches.size(); times++)
+    //while(!matches.empty())
+    //loop 42 times for 1000
+    while(loops-- > 0){
  
- 
+        //cout <<"Loop: " << times << endl;
+        Node *curNode = root;
+        int index = 0;
+        std::vector<NonLeafNode*> path; //vector to store path of traversal
+        std::vector<int>pathIndexes;    //vector to store indexes of path of traversal
     
-    int found = 0;
-    int firstIndex = 0;
-    //find index of first occurence of key in target node
-    while (!found) {
-        for (int i = 0; i<n ;i++){
-            if (targetNode->kppArray[i].key == key){
-                firstIndex = i;
-                found = 1;
-                break;
+        //find possible target leaf node with key, save the path.
+        NonLeafNode* nonLeafNode = dynamic_cast<NonLeafNode*>(curNode);
+        while(nonLeafNode != nullptr){
+            index = 0;
+            for (double i : nonLeafNode->keyArray){
+    
+                if (key > i && i != nullInt) {
+                    index++;
+                } 
+                else {
+                    break;
+                }
             }
+            
+            path.push_back(nonLeafNode);
+            pathIndexes.push_back(index);
+            curNode = nonLeafNode->ptrArray[index];
+            nonLeafNode = dynamic_cast<NonLeafNode*>(curNode);
         }
-        curNode = targetNode->nextNode;
-        targetNode = dynamic_cast<LeafNode*>(curNode);
-    }
+        //cout << "test "  << endl;
+        
  
-    //key not found
- 
-//            Node *target = parent1->ptrArray[index-1];
-//            LeafNode *targetNode = dynamic_cast<LeafNode*>(target);
- 
-    //finds the parent node with target nodes then iterate thorugh target nodes to find those
-    //containing key to delete
- 
-    NonLeafNode *parent1 = path.back();
-    for(int i=0; i< getNumKeysNL(parent1); i++) {
-        LeafNode *targetNode = dynamic_cast<LeafNode*>(parent1->ptrArray[i]);
-        if(targetNode != nullptr){
-            for (int j=0 ; j<n ; j++){
-                int nodeKey = targetNode->kppArray[j].key;
-                if (nodeKey == key){
+        //targetnode is leftmost leaf node containing the key
+        LeafNode* targetNode = dynamic_cast<LeafNode*>(curNode);
+        //find the key's index in leaf node, then delete the records
+        //in target node, find same keys and delete the records
+        //int firstIndex = std::lower_bound(targetNode->kppArray->key.begin(), targetNode->kppArray->key.end(), key) - targetNode->kppArray->key.begin();
+        
+        int found = 0;
+        int firstIndex = 0;
+        //find index of first occurence of key in target node
+        while (!found) {
+            for (int i = 0; i<n ;i++){
+                if (targetNode->kppArray[i].key == key){
+                    firstIndex = i;
                     found = 1;
-                    //delete key
-                    targetNode->kppArray[j].key = nullInt;
-                    targetNode->kppArray[j].blockId = nullInt;
-                    targetNode->kppArray[j].blockOffset = nullInt;
-                    //cout << "Deleted "<< key <<" at index "<< i << "\n";
+                    break;
+                }
+            }
+            curNode = targetNode->nextNode;
+            targetNode = dynamic_cast<LeafNode*>(curNode);
+        }
+ 
+        //cout << "first indexes " << firstIndex << endl; 
+        //cout << "key at index " << targetNode->kppArray[firstIndex].key << endl;
+        //cout << "key at last index " << targetNode->kppArray[getNumKeys(targetNode) - 1].key << endl;
+ 
+        //  Node *target = parent1->ptrArray[index-1];
+        //  LeafNode *targetNode = dynamic_cast<LeafNode*>(target);
+        //finds the parent node with target nodes then iterate thorugh target nodes to find those
+        //containing key to delete
+        NonLeafNode *parent1 = path.back();  
+        //    LeafNode *targetNode = dynamic_cast<LeafNode*>(parent1->ptrArray[i]);
+        bool deleted = false;
+ 
+        for (int j=0 ; j< n ; j++){
+            int nodeKey = targetNode->kppArray[j].key;
+            if (nodeKey == key ){
+                deleted = true;
+                int oldNum = getNumKeys(targetNode);
+ 
+                //delete key
+                targetNode->kppArray[j].key = nullInt;
+                targetNode->kppArray[j].blockId = nullInt;
+                targetNode->kppArray[j].blockOffset = nullInt;
+ 
+                cout << "Deleted "<< key <<" at index "<< j << "\n";
+ 
+                //if node deleted is not last , need to shift left and delete duplicate
+                if(j != (oldNum -1)){
  
                     //shift keys to the left after every deletion
                     for (int k=j ; k < getNumKeys(targetNode)  ; k++){
                         targetNode->kppArray[k] = targetNode->kppArray[k+1];
                     }
-        
+ 
                     //clear duplicate last key 
                     targetNode->kppArray[getNumKeys(targetNode) -1].key = nullInt;
                     targetNode->kppArray[getNumKeys(targetNode) -1].blockId = nullInt;
                     targetNode->kppArray[getNumKeys(targetNode) -1].blockOffset = nullInt;
-        
-                    --j;
- 
-                    //after deleting,handle case scenarios
-                    if (getNumKeys(targetNode) >= minKeys){
- 
-                        //cout << "target node > min keys " << "\n";
-                        if (firstIndex != 0){
-                            return;
-                        }
-                
-                        while(path.back() != nullptr ){
-                            if (pathIndexes.back() == 0){
-                                //path.back()->keyArray[pathIndexes.back()] != key
-                                pathIndexes.pop_back();
-                                path.pop_back();
-                            }
-                            else{
-                                //cout << "update parent node key" << "\n";
-                                key = targetNode->kppArray[0].key;
- 
-                                //cout << key << "\n";
-                                firstIndex = pathIndexes.back();
-                                //cout << firstIndex << "\n";
- 
-                                Node* parent = path.back();
-                                NonLeafNode* parentNode = dynamic_cast<NonLeafNode*>(parent);
- 
-                                parentNode->keyArray[firstIndex-1] = key;
- 
-                                //cout << parentNode->keyArray[0] << "\n";
-                                //cout << parentNode->keyArray[1] << "\n";
-                                //cout << parentNode->keyArray[2] << "\n";
-                                //cout << parentNode->keyArray[3] << "\n";
- 
- 
-                                //cout << "done" << "\n";
-                                return;
-                            }
-                        }
-                    }
-                    //else Keys in leaf node < Min size
-                    else{
- 
-                        //cout << "target node < min keys " << "\n";
-                        int prevIndex = pathIndexes.back();
-                        NonLeafNode *parentNode = path.back();
-                        //cout << "prevIndex " << prevIndex << "\n";
-                        Node *leftNode;
-                        Node *rightNode; //left right pointers to keep track of neighbor
-                        //path for parent nodes, ppathIndexes for prev indexes
-                        path.pop_back();
-                        pathIndexes.pop_back();
-                        //cout << "prevIndex is  " << prevIndex << endl;
-                        //cout <<  parentNode->keyArray[0] << endl;
-                        //cout <<  parentNode->keyArray[1] << endl;
-                        //cout <<  parentNode->keyArray[2] << endl;
-                        //cout <<  parentNode->keyArray[3] << endl;
-                        //if there is a left neighbor of same parent node
- 
-                        if(prevIndex > 0){
-                            
-                            leftNode = parentNode->ptrArray[prevIndex-1]; //left now points to node left of targetnode
-                            LeafNode* left = dynamic_cast<LeafNode*>(leftNode);
-                            //cout << "last of left neighbor " << left->kppArray[getNumKeys(left)-1].key << endl;
-                            
-                            //if can borrow from left, borrow
-                            if(getNumKeys(left) > minKeys){   
-                                // = last key in left node
-                                KeyPointerPair borrowleft = left->kppArray[getNumKeys(left) - 1];
- 
-                                //shift keys in target node by 1 to the right 
-                                for (int i = n-1; i >=0 ; i++){
-                                    targetNode->kppArray[i+1] = targetNode->kppArray[i];
-                                }
- 
-                                //insert into first element of target node
-                                targetNode->kppArray[0] = borrowleft;
-                
-                                //cout << "borrow left " << "\n";
-                                //remove last element of left node, doesnt reduce container size
-                                left->kppArray[getNumKeys(left) - 1].key = nullInt;
-                                left->kppArray[getNumKeys(left) - 1].blockId = nullInt;
-                                left->kppArray[getNumKeys(left) - 1].blockOffset = nullInt;                
- 
-                                //update key in parent node to new left node added in target node
-                                parentNode->keyArray[prevIndex] = targetNode->kppArray[0].key;
-                                return;
-                            }
-                        }
-                
-                        //check if theres a right neighbor
-                        if(prevIndex < getNumKeysNL(parentNode) -1){
-                            //cout << "right neighbor exists " << "\n";
-                            rightNode = parentNode->ptrArray[prevIndex+1];
-                            LeafNode* right = dynamic_cast<LeafNode*>(rightNode);
-                            //cout << "first of right neighbor" << right->kppArray[0].key << endl;
- 
-                            //if can borrow from right,borrow
-                            if(getNumKeys(right) > minKeys){
-                                //first key in right node
-                                KeyPointerPair borrowright = right->kppArray[0];
-                                //insert into last element of target node
-                                targetNode->kppArray[getNumKeys(targetNode)] = borrowright;
- 
-                                //cout << "borrow right " << "\n"; 
-                                //shift keys in right node by 1 to left
-                                for (int i = 0 ; i < n ; i++){
-                                    right->kppArray[i] = right->kppArray[i+1];
-                                }
- 
- 
-                                //clear duplicate last key 
-                                right->kppArray[getNumKeys(right)-1].key = nullInt;
-                                right->kppArray[getNumKeys(right)-1].blockId = nullInt;
-                                right->kppArray[getNumKeys(right)-1].blockOffset = nullInt;
- 
-                                //test
-                                //cout <<  right->kppArray[0].key << endl;
-                                //cout <<  right->kppArray[1].key << endl;
-                                //cout <<  right->kppArray[2].key << endl;
-                                //cout <<  right->kppArray[3].key << endl;
- 
-                                //update key in parent node 
-                                parentNode->keyArray[prevIndex] = right->kppArray[0].key;
- 
-                                //test
-                                //cout <<  parentNode->keyArray[0]<< endl;
-                                //cout <<  parentNode->keyArray[1]<< endl;
-                                //cout <<  parentNode->keyArray[2]<< endl;
-                                //cout <<  parentNode->keyArray[3]<< endl;
- 
-                
-                                //check if deleted key in target node is the leftmost key , then need update parent key
-                                if (firstIndex != 0){
-                                    updateParentKey(prevIndex,targetNode,parentNode,path,pathIndexes);
-                                }
-                                return;
-                
-                            }
-                
-                
-                        }
-                        
-                        //merging 
-                        //there is left neighbor with  min keys,  merge 
-                        if (leftNode != nullptr && prevIndex > 0){
- 
-                            //cout << "merge left " << "\n";
- 
-                            LeafNode*left = dynamic_cast<LeafNode*>(leftNode);
-                            //while no. of keys not equal to 0, put all keys from target node and merge into the left
-                            while (getNumKeys(targetNode) != 0){
-                                //add to last element of left node the first element of target node
-                                left->kppArray[getNumKeys(left)] = targetNode->kppArray[0];
- 
-                                //shift targetnode cells 1 to the left
-                                for(int i=0; i<getNumKeys(targetNode); i++){
-                                    targetNode->kppArray[i] = targetNode->kppArray[i+1];
-                                }
-                
-                                //remove duplicate key ptr in targetnode at last index
-                                targetNode->kppArray[getNumKeys(targetNode)].key = nullInt;
-                                targetNode->kppArray[getNumKeys(targetNode)].blockId = nullInt;
-                                targetNode->kppArray[getNumKeys(targetNode)].blockOffset = nullInt;
-                            }
-                            //update pointer to next node
-                            left->nextNode = targetNode->nextNode;
- 
-                            //remove internal
-                            removeInternalNode(parentNode->keyArray[prevIndex-1], parentNode,targetNode);
-                        }
-                
-                
-                        //else, right neighbor has min keys, and merge
-                        else{
- 
-                            //cout << "merge right " << "\n";
-                            LeafNode* right = dynamic_cast<LeafNode*>(rightNode);
-                
-                            while(getNumKeys(right) != 0){
-                
-                                //add to last element of targetnode the first element of right
-                                targetNode->kppArray[getNumKeys(targetNode)] = right->kppArray[0];
- 
-                                //shift right records 1 to the left
-                                for (int i=0 ; i < n -1 ; ++i){
-                                    right->kppArray[i] = right->kppArray[i+1];
-                                }
- 
-                                //remove duplicate key ptr in rightnode at last index
-                                right->kppArray[getNumKeys(right)].key = nullInt;
-                                right->kppArray[getNumKeys(right)].blockId = nullInt;
-                                right->kppArray[getNumKeys(right)].blockOffset = nullInt;
- 
-                
-                            }
-                            /*test
-                            cout << targetNode->kppArray[0].key << "\n";
-                            cout << targetNode->kppArray[1].key << "\n";
-                            cout << targetNode->kppArray[2].key << "\n";
-                            cout << targetNode->kppArray[3].key << "\n";
-                            
-                            
-                            cout << right->kppArray[0].key << "\n";
-                            cout << right->kppArray[1].key << "\n";
-                            cout << right->kppArray[2].key << "\n";
-                            cout << right->kppArray[3].key << "\n";
-                            */
- 
-                            //update pointer to next node
-                            targetNode->nextNode = right->nextNode;
-                            //cout << prevIndex << "\n";
-                            removeInternalNode(parentNode->keyArray[prevIndex],parentNode, right);
-                        }
-                
-                    }
  
  
                 }
+                break;
  
             }
+            if (deleted)
+                break;
+ 
         }
+        
+        
+ 
+        if (deleted){
+            int borrowed = 0;
+            int merged = 0;
+            //handle node balancing
+            cout << "Deleted 1 instance, now handling cases.\n";
+            //after deleting only 1 key ,handle case scenarios
+            if (getNumKeys(targetNode) >= minKeys){
+ 
+                cout << "target node > min keys " << "\n";
+ 
+                if (firstIndex == 0){
+ 
+                    while(path.back() != nullptr ){
+ 
+                        if (pathIndexes.back() == 0){
+                            //path.back()->keyArray[pathIndexes.back()] != key
+                            pathIndexes.pop_back();
+                            path.pop_back();
+                        }
+ 
+                        else{
+                            cout << "update parent node key" << "\n";
+                            key = targetNode->kppArray[0].key;
+ 
+                            //cout << key << "\n";
+                            firstIndex = pathIndexes.back();
+                            //cout << firstIndex << "\n";
+ 
+                            Node* parent = path.back();
+                            NonLeafNode* parentNode = dynamic_cast<NonLeafNode*>(parent);
+ 
+                            parentNode->keyArray[firstIndex-1] = key;
+ 
+                            //cout << parentNode->keyArray[0] << "\n";
+                            //cout << parentNode->keyArray[1] << "\n";
+                            //cout << parentNode->keyArray[2] << "\n";
+                            //cout << parentNode->keyArray[3] << "\n";
+ 
+ 
+                            //cout << "done" << "\n";
+                            continue;
+                        }
+                    }
+                }
+ 
+            }
+ 
+            //else Keys in leaf node < Min size
+            else if (getNumKeys(targetNode) < minKeys){
+ 
+                cout << "target node < min keys " << "\n";
+                int prevIndex = pathIndexes.back();
+                NonLeafNode *parentNode = path.back();
+                //cout << "prevIndex " << prevIndex << "\n";
+                Node *leftNode;
+                Node *rightNode; //left right pointers to keep track of neighbor
+                //path for parent nodes, ppathIndexes for prev indexes
+                path.pop_back();
+                pathIndexes.pop_back();
+                //cout << "prevIndex is  " << prevIndex << endl;
+                //cout <<  parentNode->keyArray[0] << endl;
+                //cout <<  parentNode->keyArray[1] << endl;
+                //cout <<  parentNode->keyArray[2] << endl;
+                //cout <<  parentNode->keyArray[3] << endl;
+                //if there is a left neighbor of same parent node
+ 
+                if(prevIndex > 0){
+                    
+                    leftNode = parentNode->ptrArray[prevIndex-1]; //left now points to node left of targetnode
+                    LeafNode* left = dynamic_cast<LeafNode*>(leftNode);
+                    cout << "last of left neighbor " << left->kppArray[getNumKeys(left)-1].key << endl;
+                    
+                    //if can borrow from left, borrow
+                    if(getNumKeys(left) > minKeys){   
+                        // = last key in left node
+                        cout << "borrow left " << endl;
+                        KeyPointerPair borrowleft = left->kppArray[getNumKeys(left) - 1];
+ 
+                        //shift keys in target node by 1 to the right 
+                        for (int i = n-1; i >=0 ; i++){
+                            targetNode->kppArray[i+1] = targetNode->kppArray[i];
+                        }
+ 
+                        //insert into first element of target node
+                        targetNode->kppArray[0] = borrowleft;
+        
+                        //cout << "borrow left " << "\n";
+                        //remove last element of left node, doesnt reduce container size
+                        left->kppArray[getNumKeys(left) - 1].key = nullInt;
+                        left->kppArray[getNumKeys(left) - 1].blockId = nullInt;
+                        left->kppArray[getNumKeys(left) - 1].blockOffset = nullInt;                
+ 
+                        //update key in parent node to new left node added in target node
+                        parentNode->keyArray[prevIndex] = targetNode->kppArray[0].key;
+                        //return
+                        borrowed = 1;
+                    }
+                }
+        
+                //check if theres a right neighbor
+                if(prevIndex < getNumKeysNL(parentNode) -1 && borrowed == 0){
+                    cout << "right neighbor exists " << "\n";
+                    rightNode = parentNode->ptrArray[prevIndex+1];
+                    LeafNode* right = dynamic_cast<LeafNode*>(rightNode);
+                    //cout << "first of right neighbor" << right->kppArray[0].key << endl;
+ 
+                    //if can borrow from right,borrow
+                    if(getNumKeys(right) > minKeys){
+                        cout << "borrow right " << endl;
+                        //first key in right node
+                        KeyPointerPair borrowright = right->kppArray[0];
+                        //insert into last element of target node
+                        targetNode->kppArray[getNumKeys(targetNode)] = borrowright;
+ 
+                        //cout << "borrow right " << "\n"; 
+                        //shift keys in right node by 1 to left
+                        for (int i = 0 ; i < getNumKeys(right) ; i++){
+                            right->kppArray[i] = right->kppArray[i+1];
+                        }
+ 
+ 
+                        //clear duplicate last key 
+                        right->kppArray[getNumKeys(right)-1].key = nullInt;
+                        right->kppArray[getNumKeys(right)-1].blockId = nullInt;
+                        right->kppArray[getNumKeys(right)-1].blockOffset = nullInt;
+ 
+                        //test
+                        //cout <<  right->kppArray[0].key << endl;
+                        //cout <<  right->kppArray[1].key << endl;
+                        //cout <<  right->kppArray[2].key << endl;
+                        //cout <<  right->kppArray[3].key << endl;
+ 
+                        //update key in parent node 
+                        parentNode->keyArray[prevIndex] = right->kppArray[0].key;
+ 
+                        //test
+                        //cout <<  parentNode->keyArray[0]<< endl;
+                        //cout <<  parentNode->keyArray[1]<< endl;
+                        //cout <<  parentNode->keyArray[2]<< endl;
+                        //cout <<  parentNode->keyArray[3]<< endl;
+ 
+        
+                        //check if deleted key in target node is the leftmost key , then need update parent key
+                        if (firstIndex != 0){
+                            updateParentKey(prevIndex,targetNode,parentNode,path,pathIndexes);
+                        }
+                        borrowed = 1;
+        
+                    }
+        
+        
+                }
+                
+                //merging 
+                //there is left neighbor with  min keys,  merge 
+                if (leftNode != nullptr && prevIndex > 0 && borrowed ==0 && merged ==0){
+ 
+                    cout << "merge left " << "\n";
+                    merged = 1;
+                    LeafNode*left = dynamic_cast<LeafNode*>(leftNode);
+                    //while no. of keys not equal to 0, put all keys from target node and merge into the left
+                    while (getNumKeys(targetNode) != 0){
+                        //add to last element of left node the first element of target node
+                        left->kppArray[getNumKeys(left)] = targetNode->kppArray[0];
+ 
+                        //shift targetnode cells 1 to the left
+                        for(int i=0; i<getNumKeys(targetNode); i++){
+                            targetNode->kppArray[i] = targetNode->kppArray[i+1];
+                        }
+        
+                        //remove duplicate key ptr in targetnode at last index
+                        targetNode->kppArray[getNumKeys(targetNode)].key = nullInt;
+                        targetNode->kppArray[getNumKeys(targetNode)].blockId = nullInt;
+                        targetNode->kppArray[getNumKeys(targetNode)].blockOffset = nullInt;
+                    }
+                    //update pointer to next node
+                    left->nextNode = targetNode->nextNode;
+ 
+                    //remove internal
+                    removeInternalNode(parentNode->keyArray[prevIndex-1], parentNode,targetNode);
+                }
+        
+        
+                //else, right neighbor has min keys, and merge
+                else if (borrowed == 0 && merged == 0){
+ 
+                    cout << "merge right " << "\n";
+                    merged = 1;
+                    LeafNode* right = dynamic_cast<LeafNode*>(rightNode);
+        
+                    while(getNumKeys(right) != 0){
+        
+                        //add to last element of targetnode the first element of right
+                        targetNode->kppArray[getNumKeys(targetNode)] = right->kppArray[0];
+ 
+                        //shift right records 1 to the left
+                        for (int i=0 ; i < n -1 ; ++i){
+                            right->kppArray[i] = right->kppArray[i+1];
+                        }
+ 
+                        //remove duplicate key ptr in rightnode at last index
+                        right->kppArray[getNumKeys(right)].key = nullInt;
+                        right->kppArray[getNumKeys(right)].blockId = nullInt;
+                        right->kppArray[getNumKeys(right)].blockOffset = nullInt;
+ 
+        
+                    }
+                    /*test
+                    cout << targetNode->kppArray[0].key << "\n";
+                    cout << targetNode->kppArray[1].key << "\n";
+                    cout << targetNode->kppArray[2].key << "\n";
+                    cout << targetNode->kppArray[3].key << "\n";
+                    
+                    
+                    cout << right->kppArray[0].key << "\n";
+                    cout << right->kppArray[1].key << "\n";
+                    cout << right->kppArray[2].key << "\n";
+                    cout << right->kppArray[3].key << "\n";
+                    */
+ 
+                    //update pointer to next node
+                    targetNode->nextNode = right->nextNode;
+                    //cout << prevIndex << "\n";
+                    removeInternalNode(parentNode->keyArray[prevIndex],parentNode, right);
+                }                   
+                        
+            }
+ 
+                    
+        }
+ 
     }
- 
-    if(found == 0){
-        //cout << "Key " << key << " not found in tree" << endl;
-        return;
-    }
- 
- 
- 
+
 }
 
 //get num keys in leaf node

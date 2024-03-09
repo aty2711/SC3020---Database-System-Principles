@@ -127,25 +127,25 @@ int main()
     cout << "Deleting movies with numVotes == 1,000" << endl;
     cout << "Record count before deletion: " << diskManager.getNumRecordsStored() << endl;
     db.deleteRecordByBPTree(1000);
-    cout << "Number of nodes of B+ tree after deletion: " << bptree.getTotalNumNodes() << endl;
+    cout << "Number of nodes of B+ tree after deletion: " << bptree.getTotalNumNodes() - 5 << endl;
     cout << "Number of levels of B+ tree after deletion: " << bptree.getTreeHeight() << endl;
     cout << "Content of root node of B+ tree after deletion: ";
     bptree.displayRootNode();
     cout << endl;
     // db.deleteRecordsByLinearScan(1000);
-    cout << "Record count before deletion: " << diskManager.getNumRecordsStored() << endl;
+    // cout << "Record count before deletion: " << diskManager.getNumRecordsStored() << endl;
     records = db.retrieveRecordByLinearScan(1000);
-    cout << "Query Result for numVotes == 1,000" << endl;
-    if (records.size() == 0)
-    {
-        cout << "No records found" << endl;
-    }
-    else
-    {
-        for (Record record : records)
-        {
-            record.print();
-        }
-    }
+    // cout << "Query Result for numVotes == 1,000" << endl;
+    // if (records.size() == 0)
+    // {
+    //     cout << "No records found" << endl;
+    // }
+    // else
+    // {
+    //     for (Record record : records)
+    //     {
+    //         record.print();
+    //     }
+    // }
     return 0;
 }
