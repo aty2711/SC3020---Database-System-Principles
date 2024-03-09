@@ -713,8 +713,6 @@ void BPTree::insertInternalNode(int key, vector<NonLeafNode *> nodePath, Node *n
 }
 
 void BPTree::deleteKey(int key){
-
-    return;
     
     cout << "Deleting " << key <<  " in tree" << endl;
  
@@ -733,6 +731,7 @@ void BPTree::deleteKey(int key){
         cout << "Key not in tree" << endl;
         return;
     }
+    return;
  
     int minKeys = (n+1)/2;
     //for(int times = 0; times < matches.size(); times++)
