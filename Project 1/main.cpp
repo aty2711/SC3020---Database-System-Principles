@@ -75,20 +75,25 @@ int main()
      dataFile.close();
      cout << "\n"
           << endl;
+
      cout << "<----------------- Experiment 2: Building a B+ Tree --------------->" << endl;
      cout << "Parameter n = " << n << endl;
      cout << "Number of Nodes: " << bptree.getTotalNumNodes() << endl;
      cout << "Number of Levels: " << bptree.getTreeHeight() << endl;
      cout << "Content of root node: ";
      bptree.displayRootNode();
+
      cout << "\n"
           << endl;
+
      cout << "<----------------- Experiment 3: retrieve those movies with the numVotes == 500 -------->" << endl;
      cout << "Retrieving Records with B+ tree:" << endl;
      cout << "Number of index nodes of B+ tree accessed: " << bptree.getNumIndexNodes(500) << endl;
      vector<Record> records = db.retrieveRecordByBPTree(500);
+
      cout << "\n"
           << endl;
+
      cout << "Retrieving Records with Linear Scan:" << endl;
      records = db.retrieveRecordByLinearScan(500);
      cout << "\n"
@@ -98,10 +103,15 @@ int main()
      cout << "Retrieving Records with B+ tree:" << endl;
      cout << "Number of index nodes of B+ tree accessed: " << bptree.getNumIndexNodes(30000) << endl;
      records = db.retrieveRangeRecordsByBPTree(30000, 40000);
+
      cout << "\n"
           << endl;
+
      cout << "Retrieving Records with Linear Scan:" << endl;
      records = db.retrieveRangeRecordsByLinearScan(30000, 40000);
+     cout << "\n"
+          << endl;
+
      cout << "<----------------- Experiment 5: delete those movies with numVotes == 1,000 -------->" << endl;
      cout << "Deleting Records with B+ tree:" << endl;
      records = db.retrieveRecordByBPTree(1000);
