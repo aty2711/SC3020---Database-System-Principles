@@ -298,7 +298,29 @@ class MyScanNode(Node):
         rel = self.node_json["Relation"]
         attr = self.node_json["Attribute"]
         return Node.B(rel) + Node.T(rel) + Node.V(rel, attr) + Node.M()
+    
+class IndexScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
 
+        # Explain the relation, attribute 
+        rel = self.node_json["Relation"]
+        attr = self.node_json["Attribute"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(args)
+
+        # Explain the difference
+        self.str_explain_difference = '''PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
+        Also, PostgreSQL uses optimizations such as  parallel processing and caching.
+        These will either reduce cost or makes cost computation more accurate.
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Relation"]
+        attr = self.node_json["Attribute"]
+        return Node.T(rel) / Node.V(attr, rel)
 
 ####################### CODE TO RUN ########################
 
