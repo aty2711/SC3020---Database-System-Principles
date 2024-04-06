@@ -232,56 +232,72 @@ class Node(object):
 
     ######### Functions that Re-queries the Database #########
 
-    def B(relation):
+    def B(relation, show = True):
         """
         Return number of blocks for the specified relation
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         num_blocks = 0
-        print("Number of blocks for relation '", relation, "': ", num_blocks)
+        if show: 
+            print("Number of blocks for relation '", relation, "': ", num_blocks)
         return num_blocks
 
-    def T(relation):
+    def T(relation, show = True):
         """
         Return number of tuples for the specified relation
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         num_tuples = 0
-        print("Number of tuples for relation '", relation, "': ", num_tuples)
+        if show: 
+            print("Number of tuples for relation '", relation, "': ", num_tuples)
         return num_tuples
 
-    def M():
+    def M(show = True):
         """
         Return buffer size allocated to DBMS in memory
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         buffer_size = 0
-        print("Buffer size: ", buffer_size)
+        if show: 
+            print("Buffer size: ", buffer_size)
         return buffer_size
 
-    def V(relation, attribute):
+    def V(relation, attribute, show = True):
         """
         Return number of unique values for the attribute in
         the provided relation
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         num_unique = 0
-        print(
-            "Number of unique values for attribute '",
-            attribute,
-            "' of relation '",
-            relation,
-            "': ",
-            num_unique,
-        )
+        if show: 
+            print(
+                "Number of unique values for attribute '",
+                attribute,
+                "' of relation '",
+                relation,
+                "': ",
+                num_unique,
+            )
         return num_unique
 
 
