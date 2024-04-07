@@ -232,56 +232,72 @@ class Node(object):
 
     ######### Functions that Re-queries the Database #########
 
-    def B(relation):
+    def B(relation, show = True):
         """
         Return number of blocks for the specified relation
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         num_blocks = 0
-        print("Number of blocks for relation '", relation, "': ", num_blocks)
+        if show: 
+            print("Number of blocks for relation '", relation, "': ", num_blocks)
         return num_blocks
 
-    def T(relation):
+    def T(relation, show = True):
         """
         Return number of tuples for the specified relation
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         num_tuples = 0
-        print("Number of tuples for relation '", relation, "': ", num_tuples)
+        if show: 
+            print("Number of tuples for relation '", relation, "': ", num_tuples)
         return num_tuples
 
-    def M():
+    def M(show = True):
         """
         Return buffer size allocated to DBMS in memory
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         buffer_size = 0
-        print("Buffer size: ", buffer_size)
+        if show: 
+            print("Buffer size: ", buffer_size)
         return buffer_size
 
-    def V(relation, attribute):
+    def V(relation, attribute, show = True):
         """
         Return number of unique values for the attribute in
         the provided relation
+
+        @type show : boolean
+        @param show : Whether to print out the results of the query
         """
 
         # CODE TO QUERY THE DATABASE
 
         num_unique = 0
-        print(
-            "Number of unique values for attribute '",
-            attribute,
-            "' of relation '",
-            relation,
-            "': ",
-            num_unique,
-        )
+        if show: 
+            print(
+                "Number of unique values for attribute '",
+                attribute,
+                "' of relation '",
+                relation,
+                "': ",
+                num_unique,
+            )
         return num_unique
 
 
@@ -299,6 +315,200 @@ class MyScanNode(Node):
         attr = self.node_json["Attribute"]
         return Node.B(rel) + Node.T(rel) + Node.V(rel, attr) + Node.M()
 
+class SeqScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Three different cases
+        if "Filter" not in self.node_json:
+            # Case 1: Retrieve entire table. Selectivity = 1
+            self.str_explain_formula = '''Retrieving the entire table. Selectivity = 1
+            Cost Formula: B({rel})
+            '''.format(self.node_json["Relation Name"])
+            self.str_explain_difference = '''PostgreSQL factors in parallel processing and CPU cost into the calculation
+            '''
+
+            # Explain the difference
+            self.str_explain_difference = '''PostgreSQL factors in parallel processing and CPU cost into the calculation
+            '''
+
+        elif '>' in self.node_json["Filter"] or '<' in self.node_json["Filter"]:
+            # Case 2: Retrieve a range of records. Selectivity = 1/3
+            self.str_explain_formula = '''Finding range of values. Selectivity = 1/3
+            Cost Formula: B({rel}) / 3)
+            '''.format(self.node_json["Relation Name"])
+            self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
+            PostgreSQL factors in parallel processing and CPU cost into the calculation
+            '''
+
+            # Explain the difference
+            self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
+            PostgreSQL factors in parallel processing and CPU cost into the calculation
+            '''
+
+        else:
+            # Case 3: Retrieve one exact record. Selectivity = V(R, a)
+
+            # Explain the relation, attribute 
+            rel = self.node_json["Relation Name"]
+            attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
+            args = {'attr': attr, 'rel': rel}
+            self.str_explain_formula = '''Finding exact match of value. Selectivity = Number of unique values
+            Cost Formula: B({rel}) / V({rel}, {attr})
+            '''.format(args)
+
+            # Explain the difference
+            self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
+            PostgreSQL factors in parallel processing and CPU cost into the calculation
+            '''
+
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
+        
+        # Three different cases
+        if "Filter" not in self.node_json:
+            # Case 1: Retrieve entire table. Selectivity = 1
+            return Node.B(rel)
+
+        elif '>' in self.node_json["Filter"] or '<' in self.node_json["Filter"]:
+            # Case 2: Retrieve a range of records. Selectivity = 1/3
+            return Node.B(rel) / 3
+
+        else:
+            # Case 3: Retrieve one exact record. Selectivity = V(R, a)
+            return Node.B(rel) / Node.V(rel, attr)       
+    
+    def retrieve_attribute_from_filter(filter):
+        '''
+        Pass in the value from node_json["Filter"] and return the attribute
+        Example filter = "(o_custkey < 1000000)"
+        '''
+
+        # Define the comparison operators
+        comparison_operators = ['<', '>', '=']
+
+        # Find the index of the first appearance of any comparison operator
+        index = min(filter.find(op) for op in comparison_operators if op in filter)
+
+        # Extract the text before the comparison operator
+        attr = filter[1:index].strip()
+
+        return attr
+
+class IndexScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(args)
+
+        # Explain the difference
+        self.str_explain_difference = '''PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
+        Also, PostgreSQL uses optimizations such as  parallel processing and caching.
+        These will either reduce cost or makes cost computation more accurate.
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        return Node.T(rel) / Node.V(attr, rel)
+
+class IndexOnlyScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(args)
+
+        # Explain the difference
+        self.str_explain_difference = '''Index Only Scan differs from Index Scan in that PostgreSQL only needs to access the index blocks as all of the values required are in the index.
+        PostgreSQL uses methods to reduce the cost as a result of not requiring to access heap storage.
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        return Node.T(rel) / Node.V(attr, rel)
+    
+class BitmapIndexScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(args)
+
+        # Explain the difference
+        self.str_explain_difference = '''Bitmap Index Scan does not access the heap.
+        Also, PostgreSQL considers other factors such as bitmap initialization into its cost calculation
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        return Node.T(rel) / Node.V(attr, rel)
+    
+class BitmapHeapScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(args)
+
+        # Explain the difference
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        attr = self.node_json["Attribute"]
+        return Node.T(rel) / Node.V(attr, rel)
+
+class BitmapAndNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+        self.str_explain_formula = "AND operation on bit arrays are negligible"
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
+        '''
+
+    def manual_cost(self):
+        return 0
+    
+class BitmapOrNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+        self.str_explain_formula = "OR operation on bit arrays are negligible"
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
+        '''
+
+    def manual_cost(self):
+        return 0
+    
+class CTEScanNode(SeqScanNode):
+    '''
+    CTE Scan is very similar to sequential scan, but for WITH operations
+    '''
+    pass
 
 ####################### CODE TO RUN ########################
 
