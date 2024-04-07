@@ -88,84 +88,24 @@ def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetai
             return None
 
 
-def generate_explanations(plan, node):
-    node_type = plan.get("Node Type", "Unknown")
-    total_cost = plan.get("Total Cost", "Unknown")
-    extra_info = ", ".join(
-        f"{k}: {v}" for k, v in plan.items() if k not in {"Node Type", "Total Cost"}
-    )
+def load_qep_explanations(plan_json):
+    node_type = plan_json.get("Node Type", "Unknown")
+    node = initialise_plan_node(node_type, json.dumps(plan_json))
 
-    output_string = """
-    -----------------------------------------------------
-    Node: {node_type} 
-    Total Cost: {total_cost}
+    if hasattr(node, 'explain'):
+        node.explain()
 
+    for child_plan in plan_json.get("Plans", []):
+        load_qep_explanations(child_plan)
 
-    """
+def initialise_plan_node(node_type, node_json):
+    # For demonstration, only SeqScanNode is implemented
+    if node_type == "Seq Scan":
+        return SeqScanNode(node_json)
+    else:
+        print(f"no matching node for: {node_type}")
+        return None
 
-
-def node_explanation(node_type):
-    match node_type:
-        case "Append":
-            return ""
-        case "Merge Append":
-            return ""
-        case "Nested Loop":
-            return ""
-        case "Merge Join":
-            return ""
-        case "Hash":
-            return ""
-        case "Hash Join":
-            return ""
-        case "Gather":
-            return ""
-        case "Gather Merge":
-            return ""
-        case "Squential Scan":
-            return ""
-        case "Sample Scan":
-            return ""
-        case "Index Only Scan":
-            return ""
-        case "Index Only Scan":
-            return ""
-        case "Bitmap Index Scan":
-            return ""
-        case "Bitmap Heap Scan":
-            return ""
-        case "BitmapAnd":
-            return ""
-        case "BitmapOr":
-            return ""
-        case "Tid Scan":
-            return ""
-        case "Tid Range Scan":
-            return ""
-        case "Subquery Scan":
-            return ""
-        case "CTE Scan":
-            return ""
-        case "Materialize":
-            return ""
-        case "Memoize":
-            return ""
-        case "Sort":
-            return ""
-        case "Incremental Sort":
-            return ""
-        case "Group":
-            return ""
-        case "Aggregate":
-            return ""
-        case "WindowAgg":
-            return ""
-        case "Unique":
-            return ""
-        case "Limit":
-            return ""
-        case _:
-            return f"no matching node for: {node_type}"
 
 
 import json
@@ -242,6 +182,11 @@ class Node(object):
 
         # CODE TO QUERY THE DATABASE
 
+# SELECT pg_relation_size('relation_name') / current_setting('block_size')::int AS total_blocks
+# FROM pg_class
+# WHERE relname = 'relation_name';
+
+
         num_blocks = 0
         if show: 
             print("Number of blocks for relation '", relation, "': ", num_blocks)
@@ -288,6 +233,11 @@ class Node(object):
 
         # CODE TO QUERY THE DATABASE
 
+# SELECT n_distinct
+# FROM pg_stats
+# WHERE tablename = 'relation_name' AND attname = 'attribute_name';
+
+
         num_unique = 0
         if show: 
             print(
@@ -311,8 +261,8 @@ class MyScanNode(Node):
         self.str_explain_difference = "Some explanation for difference"
 
     def manual_cost(self):
-        rel = self.node_json["Relation"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         return Node.B(rel) + Node.T(rel) + Node.V(rel, attr) + Node.M()
 
 class SeqScanNode(Node):
@@ -324,7 +274,7 @@ class SeqScanNode(Node):
             # Case 1: Retrieve entire table. Selectivity = 1
             self.str_explain_formula = '''Retrieving the entire table. Selectivity = 1
             Cost Formula: B({rel})
-            '''.format(self.node_json["Relation Name"])
+            '''.format(rel = self.node_json["Node Type"])
             self.str_explain_difference = '''PostgreSQL factors in parallel processing and CPU cost into the calculation
             '''
 
@@ -336,7 +286,7 @@ class SeqScanNode(Node):
             # Case 2: Retrieve a range of records. Selectivity = 1/3
             self.str_explain_formula = '''Finding range of values. Selectivity = 1/3
             Cost Formula: B({rel}) / 3)
-            '''.format(self.node_json["Relation Name"])
+            '''.format(rel = self.node_json["Node Type"])
             self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
             PostgreSQL factors in parallel processing and CPU cost into the calculation
             '''
@@ -350,12 +300,11 @@ class SeqScanNode(Node):
             # Case 3: Retrieve one exact record. Selectivity = V(R, a)
 
             # Explain the relation, attribute 
-            rel = self.node_json["Relation Name"]
+            rel = self.node_json["Node Type"]
             attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
-            args = {'attr': attr, 'rel': rel}
             self.str_explain_formula = '''Finding exact match of value. Selectivity = Number of unique values
             Cost Formula: B({rel}) / V({rel}, {attr})
-            '''.format(args)
+            '''.format(rel = rel, attr = attr)
 
             # Explain the difference
             self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
@@ -363,7 +312,7 @@ class SeqScanNode(Node):
             '''
 
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
+        rel = self.node_json["Node Type"]
         attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
         
         # Three different cases
@@ -377,6 +326,8 @@ class SeqScanNode(Node):
 
         else:
             # Case 3: Retrieve one exact record. Selectivity = V(R, a)
+            if Node.V(rel, attr) == 0:
+                return Node.B(rel)
             return Node.B(rel) / Node.V(rel, attr)       
     
     def retrieve_attribute_from_filter(filter):
@@ -401,8 +352,8 @@ class IndexScanNode(Node):
         super().__init__(node_json)
 
         # Explain the relation, attribute 
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         args = {'attr': attr, 'rel': rel}
         self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
         Cost Formula: T({rel}) / V({rel}, {attr})
@@ -415,8 +366,8 @@ class IndexScanNode(Node):
         '''
 
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         return Node.T(rel) / Node.V(attr, rel)
 
 class IndexOnlyScanNode(Node):
@@ -424,12 +375,10 @@ class IndexOnlyScanNode(Node):
         super().__init__(node_json)
 
         # Explain the relation, attribute 
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
         args = {'attr': attr, 'rel': rel}
         self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
         Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(args)
+        '''.format(attr = self.node_json["Filter"], rel =self.node_json["Node Type"])
 
         # Explain the difference
         self.str_explain_difference = '''Index Only Scan differs from Index Scan in that PostgreSQL only needs to access the index blocks as all of the values required are in the index.
@@ -437,8 +386,8 @@ class IndexOnlyScanNode(Node):
         '''
 
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         return Node.T(rel) / Node.V(attr, rel)
     
 class BitmapIndexScanNode(Node):
@@ -446,8 +395,8 @@ class BitmapIndexScanNode(Node):
         super().__init__(node_json)
 
         # Explain the relation, attribute 
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         args = {'attr': attr, 'rel': rel}
         self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
         Cost Formula: T({rel}) / V({rel}, {attr})
@@ -459,8 +408,8 @@ class BitmapIndexScanNode(Node):
         '''
 
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         return Node.T(rel) / Node.V(attr, rel)
     
 class BitmapHeapScanNode(Node):
@@ -468,8 +417,8 @@ class BitmapHeapScanNode(Node):
         super().__init__(node_json)
 
         # Explain the relation, attribute 
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         args = {'attr': attr, 'rel': rel}
         self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
         Cost Formula: T({rel}) / V({rel}, {attr})
@@ -480,8 +429,8 @@ class BitmapHeapScanNode(Node):
         '''
 
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
-        attr = self.node_json["Attribute"]
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
         return Node.T(rel) / Node.V(attr, rel)
 
 class BitmapAndNode(Node):
@@ -512,6 +461,42 @@ class CTEScanNode(SeqScanNode):
 
 ####################### CODE TO RUN ########################
 
-sample_json = {"Relation": "relA", "Attribute": "attrA", "Total Cost": 20}
-node = MyScanNode(json.dumps(sample_json))
-node.explain()
+# sample_json = {"Relation": "relA", "Attribute": "attrA", "Total Cost": 20}
+# node = MyScanNode(json.dumps(sample_json))
+# node.explain()
+
+
+###################### testing ################################
+import json
+sample_qep = """
+{
+    "Node Type": "Seq Scan",
+    "Parent Relationship": "Inner",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Relation Name": "nation",
+    "Alias": "nation",
+    "Startup Cost": 0.0,
+    "Total Cost": 12.12,
+    "Plan Rows": 1,
+    "Plan Width": 434,
+    "Filter": "(n_regionkey = 1)",
+    "Plans": [
+        {
+            "Node Type": "Seq Scan",
+            "Parent Relationship": "Inner",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "nation",
+            "Alias": "nation",
+            "Startup Cost": 0.0,
+            "Total Cost": 12.12,
+            "Plan Rows": 1,
+            "Plan Width": 434,
+            "Filter": "(n_regionkey = 1)"
+        }
+    ]
+}
+
+"""
+load_qep_explanations(json.loads(sample_qep))

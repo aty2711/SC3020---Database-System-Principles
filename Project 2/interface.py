@@ -178,9 +178,9 @@ class MainUI(QMainWindow):
         right_layout = QVBoxLayout()
         right_layout.addWidget(QLabel("QEP File Tree:"))
         
-        self.file_tree = QTreeWidget()
-        self.file_tree.setHeaderLabels(["Node Type", "Total Cost"])
-        right_layout.addWidget(self.file_tree)
+        self.qep_tree = QTreeWidget()
+        self.qep_tree.setHeaderLabels(["Node Type", "Total Cost"])
+        right_layout.addWidget(self.qep_tree)
      
 
         # Add right layout to a container widget and then to the main layout
@@ -192,16 +192,16 @@ class MainUI(QMainWindow):
         self.execute_button.clicked.connect(lambda: self.execute_query(self.database_selector.currentText(), self.sql_input.toPlainText()))
 
     def execute_query(self, database_name, query):
+        self.qep_tree.clear()
         query_details = QueryDetails
-        pass
         query_details.database = database_name
         query_details.query = query
         qep = retrieve_explain_query(self.login_details, query_details)
         self.query_output.setText(json.dumps(qep[0][0][0], indent=4))
         self.populate_qep_tree(qep[0][0][0]['Plan'], None)
          # Resize columns to fit content
-        self.file_tree.setColumnWidth(0,200)
-        self.file_tree.setColumnWidth(1,100)
+        self.qep_tree.setColumnWidth(0,200)
+        self.qep_tree.setColumnWidth(1,100)
 
 
     
@@ -214,7 +214,7 @@ class MainUI(QMainWindow):
 
         # Create a new tree item with this info
         if parent_item is None:
-            tree_item = QTreeWidgetItem(self.file_tree, [node_type, str(total_cost), str(plan_rows), str(plan_width), extra_info])
+            tree_item = QTreeWidgetItem(self.qep_tree, [node_type, str(total_cost), str(plan_rows), str(plan_width), extra_info])
         else:
             tree_item = QTreeWidgetItem(parent_item, [node_type, str(total_cost), str(plan_rows), str(plan_width), extra_info])
 
