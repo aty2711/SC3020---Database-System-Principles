@@ -89,15 +89,24 @@ def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetai
 
 
 def load_qep_explanations(plan_json):
+    # Initialise an empty string to collect explanations.
+    explanations = ""
+
     node_type = plan_json.get("Node Type", "Unknown")
-    node = initialise_plan_node(node_type, json.dumps(plan_json))
+    node_json_str = json.dumps(plan_json)  # Convert plan_json to a string if necessary
+    node = initialise_plan_node(node_type, node_json_str)
 
     if hasattr(node, 'explain'):
-        node.explain()
+        # Append the explanation of the current node.
+        explanations += node.explain() + "\n"
+        node.print_explain()
 
+    # Recursively process child nodes and append their explanations.
     for child_plan in plan_json.get("Plans", []):
-        load_qep_explanations(child_plan)
-
+        explanations += load_qep_explanations(child_plan) + "\n"
+    
+    return explanations.strip()
+    
 def initialise_plan_node(node_type, node_json):
     # For demonstration, only SeqScanNode is implemented
     if node_type == "Seq Scan":
@@ -105,7 +114,6 @@ def initialise_plan_node(node_type, node_json):
     else:
         print(f"no matching node for: {node_type}")
         return None
-
 
 
 import json
@@ -142,7 +150,7 @@ class Node(object):
         """
         return 0
 
-    def explain(self):
+    def print_explain(self):
         """
         Called by interface.py to display the full explanation for
         that node
@@ -169,6 +177,31 @@ class Node(object):
             print()
             print("Reason for difference:")
             print(self.str_explain_difference)
+
+    def explain(self):
+        result_string = ""
+
+        # Add the formula explanation
+        result_string += self.str_explain_formula + "\n"
+        calculated_cost = self.manual_cost()
+
+        # Add the calculated cost
+        result_string += "Calculated Cost: " + str(calculated_cost) + "\n\n"
+
+        # Add the PostgreSQL total cost
+        result_string += "PostgreSQL Total Cost: " + str(self.node_json.get("Total Cost", "Unknown")) + "\n"
+
+        # Compare the calculated cost with PostgreSQL's total cost
+        if calculated_cost == self.node_json.get("Total Cost"):
+            result_string += "Manually calculated cost is the same as system calculated cost.\n"
+        else:
+            result_string += "Manually calculated cost is different from system calculated cost.\n\n"
+            result_string += "Reason for difference:\n"
+            result_string += self.str_explain_difference + "\n"
+
+        return result_string
+
+
 
     ######### Functions that Re-queries the Database #########
 
