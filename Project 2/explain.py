@@ -545,120 +545,248 @@ class SeqScanNode(Node):
         attr = filter[1:index].strip()
 
         return attr
-
+    
+    
 class IndexScanNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
 
-        # Explain the relation, attribute 
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+
+        # Explain the relation, attribute
+        rel = self.node_json["Relation"]
+        attr = self.node_json["Attribute"]
+        args = {"attr": attr, "rel": rel}
+        self.str_explain_formula = """Index on attribute '{attr}' of relation '{rel}'
         Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(args)
+        """.format(
+            args
+        )
 
         # Explain the difference
-        self.str_explain_difference = '''PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
+        self.str_explain_difference = """PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
         Also, PostgreSQL uses optimizations such as  parallel processing and caching.
         These will either reduce cost or makes cost computation more accurate.
-        '''
+        """
 
     def manual_cost(self):
         rel = self.node_json["Node Type"]
         attr = self.node_json["Filter"]
         return Node.T(rel) / Node.V(attr, rel)
 
-class IndexOnlyScanNode(Node):
+class AppendNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
 
-        # Explain the relation, attribute 
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(attr = self.node_json["Filter"], rel =self.node_json["Node Type"])
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combine the results of the child operations.
+        Cost Formula: SIGMA(Cost(Child))
+        """
 
         # Explain the difference
-        self.str_explain_difference = '''Index Only Scan differs from Index Scan in that PostgreSQL only needs to access the index blocks as all of the values required are in the index.
-        PostgreSQL uses methods to reduce the cost as a result of not requiring to access heap storage.
-        '''
+        self.str_explain_difference = """Placeholder
+        """
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
-    
-class BitmapIndexScanNode(Node):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+        return total_cost
+
+
+class MergeAppendNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
 
-        # Explain the relation, attribute 
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(args)
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combines the sorted results of the child operations, in a way that preserves their sort order.
+        Cost Formula: SIGMA(Cost(Child)) + Merge_Cost
+        """
 
         # Explain the difference
-        self.str_explain_difference = '''Bitmap Index Scan does not access the heap.
-        Also, PostgreSQL considers other factors such as bitmap initialization into its cost calculation
-        '''
+        self.str_explain_difference = """Placeholder
+        """
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
-    
-class BitmapHeapScanNode(Node):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+            total_rows += Node.T(child["Relation"])
+
+        # Merge cost might be proportional to the total number of rows across all children
+        # Assuming a linear merge cost model here
+        merge_cost = total_rows
+        total_cost += merge_cost
+
+        return total_cost
+
+
+class NestedLoopJoinNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
 
-        # Explain the relation, attribute 
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(args)
+        # Explain the relation, attribute
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        args = {"R": rel_R, "S": rel_S}
+        self.str_explain_formula = """INTRO
+        Cost Formula: min(B({R}), B({S})) + (B({R}) * B({S}))
+        """.format(
+            args
+        )
 
         # Explain the difference
-        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
-        '''
+        self.str_explain_difference = """Explanation
+        """
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
 
-class BitmapAndNode(Node):
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        return min(Node.B(rel_R), Node.B(rel_S)) + (Node.B(rel_R) * Node.B(rel_S))
+
+
+class MergeJoinNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
-        self.str_explain_formula = "AND operation on bit arrays are negligible"
-        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
-        '''
+
+        # Explain the relation, attribute
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        args = {"R": rel_R, "S": rel_S}
+        self.str_explain_formula = """INTRO
+        Cost Formula: (B({R}) + B({S}))
+        """.format(
+            args
+        )
+
+        # Explain the difference
+        self.str_explain_difference = """Explanation
+        """
 
     def manual_cost(self):
-        return 0
-    
-class BitmapOrNode(Node):
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        return Node.B(rel_R) + Node.B(rel_S)
+
+
+class HashNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
-        self.str_explain_formula = "OR operation on bit arrays are negligible"
-        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
-        '''
+
+        # Explain the relation, attribute
+        rel = self.node_json["Relation"]
+
+        args = {"rel": rel}
+        self.str_explain_formula = """Hashes the query rows for use by its parent operation, usually used to perform a JOIN.'
+        Cost Formula: Total_Cost = Scan_Cost + Hash_Build_Cost (Assume T({rel}) here for now.)
+        """.format(
+            args
+        )
+
+        # Explain the difference
+        self.str_explain_difference = """Explanation
+        """
 
     def manual_cost(self):
-        return 0
-    
-class CTEScanNode(SeqScanNode):
-    '''
-    CTE Scan is very similar to sequential scan, but for WITH operations
-    '''
-    pass
+        rel = self.node_json["Relation"]
+        return Node.T(rel)
+
+
+class HashJoinNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        args = {"R": rel_R, "S": rel_S}
+        self.str_explain_formula = """A hash join operation between two relations, where the first relation '{rel_R}' is used to build the hash table, and the second relation '{rel_S}' is then probed against this hash table.'
+        Cost Formula: 3(B({R}) + B({S}))
+        """.format(
+            args
+        )
+
+        # Explain the difference
+        self.str_explain_difference = """Our implementation here follows the Grace hash join calculation.
+        PostgreSQL does not use the Grace hash join algorithm. 
+        Instead, it implements a variant of the hash join that is optimized for in-memory operations but can also handle larger-than-memory datasets by spilling to disk.
+        """
+
+    def manual_cost(self):
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        return 3 * (Node.B(rel_R) + Node.B(rel_S))
+
+
+class GatherNode(Node): # formula unsure
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers.
+        Cost Formula: SIGMA(Cost(Child))
+        """
+
+        # Explain the difference
+        self.str_explain_difference = """Placeholder
+        """
+
+    def manual_cost(self):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+        return total_cost
+
+
+class GatherMergeNode(Node): # formula unsure
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers. Gather Merge consumes sorted data, and preserves this sort order.
+        Cost Formula: SIGMA(Cost(Child)) + Merge_Cost
+        """
+
+        # Explain the difference
+        self.str_explain_difference = """Placeholder
+        """
+
+    def manual_cost(self):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+            total_rows += Node.T(child["Relation"])
+
+        # Merge cost might be proportional to the total number of rows across all children
+        # Assuming a linear merge cost model here
+        merge_cost = total_rows
+        total_cost += merge_cost
+
+        return total_cost
+
 
 ####################### CODE TO RUN ########################
 
