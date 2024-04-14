@@ -827,3 +827,39 @@ class CTEScanNode(SeqScanNode):
 # sample_json = {"Relation": "relA", "Attribute": "attrA", "Total Cost": 20}
 # node = MyScanNode(json.dumps(sample_json))
 # node.explain()
+
+
+###################### testing ################################
+import json
+sample_qep = """
+{
+    "Node Type": "Seq Scan",
+    "Parent Relationship": "Inner",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Relation Name": "nation",
+    "Alias": "nation",
+    "Startup Cost": 0.0,
+    "Total Cost": 12.12,
+    "Plan Rows": 1,
+    "Plan Width": 434,
+    "Filter": "(n_regionkey = 1)",
+    "Plans": [
+        {
+            "Node Type": "Seq Scan",
+            "Parent Relationship": "Inner",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "nation",
+            "Alias": "nation",
+            "Startup Cost": 0.0,
+            "Total Cost": 12.12,
+            "Plan Rows": 1,
+            "Plan Width": 434,
+            "Filter": "(n_regionkey = 1)"
+        }
+    ]
+}
+
+"""
+load_qep_explanations(json.loads(sample_qep))
