@@ -502,6 +502,97 @@ class IndexScanNode(Node):
         attr = self.node_json["Filter"]
         return Node.T(rel) / Node.V(attr, rel)
 
+class IndexOnlyScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(attr = self.node_json["Filter"], rel =self.node_json["Node Type"])
+
+        # Explain the difference
+        self.str_explain_difference = '''Index Only Scan differs from Index Scan in that PostgreSQL only needs to access the index blocks as all of the values required are in the index.
+        PostgreSQL uses methods to reduce the cost as a result of not requiring to access heap storage.
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
+        return Node.T(rel) / Node.V(attr, rel)
+
+class BitmapIndexScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(args)
+
+        # Explain the difference
+        self.str_explain_difference = '''Bitmap Index Scan does not access the heap.
+        Also, PostgreSQL considers other factors such as bitmap initialization into its cost calculation
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
+        return Node.T(rel) / Node.V(attr, rel)
+
+class BitmapHeapScanNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
+        args = {'attr': attr, 'rel': rel}
+        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        Cost Formula: T({rel}) / V({rel}, {attr})
+        '''.format(args)
+
+        # Explain the difference
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
+        '''
+
+    def manual_cost(self):
+        rel = self.node_json["Node Type"]
+        attr = self.node_json["Filter"]
+        return Node.T(rel) / Node.V(attr, rel)
+
+class BitmapAndNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+        self.str_explain_formula = "AND operation on bit arrays are negligible"
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
+        '''
+
+    def manual_cost(self):
+        return 0
+
+class BitmapOrNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+        self.str_explain_formula = "OR operation on bit arrays are negligible"
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
+        '''
+
+    def manual_cost(self):
+        return 0
+
+class CTEScanNode(SeqScanNode):
+    '''
+    CTE Scan is very similar to sequential scan, but for WITH operations
+    '''
+    pass
+
 class AppendNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
