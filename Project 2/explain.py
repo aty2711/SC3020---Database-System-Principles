@@ -83,37 +83,46 @@ def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetai
         try:
             cursor.execute(query)
             query_data = cursor.fetchall()
+            print(query_data)
             return query_data
         except:
             return None
 
 
 def load_qep_explanations(plan_json):
-    # Initialise an empty string to collect explanations.
-    explanations = ""
+    # # Initialise an empty string to collect explanations.
+    # explanations = ""
 
-    node_type = plan_json.get("Node Type", "Unknown")
-    node_json_str = json.dumps(plan_json)  # Convert plan_json to a string if necessary
-    node = initialise_plan_node(node_type, node_json_str)
+    # node_type = plan_json.get("Node Type", "Unknown")
+    # node_json_str = json.dumps(plan_json)  # Convert plan_json to a string if necessary
+    # node = initialise_plan_node(node_type, node_json_str)
 
-    if hasattr(node, 'explain'):
-        # Append the explanation of the current node.
-        explanations += node.explain() + "\n"
-        node.print_explain()
+    # if hasattr(node, 'explain'):
+    #     # Append the explanation of the current node.
+    #     explanations += node.explain() + "\n"
+    #     node.print_explain()
 
-    # Recursively process child nodes and append their explanations.
-    for child_plan in plan_json.get("Plans", []):
-        explanations += load_qep_explanations(child_plan) + "\n"
+    # # Recursively process child nodes and append their explanations.
+    # for child_plan in plan_json.get("Plans", []):
+    #     explanations += load_qep_explanations(child_plan) + "\n"
     
-    return explanations.strip()
+    # return explanations.strip()
+
+    # Build a query tree
+    tree = Tree()
+    tree.build_tree(plan_json)
+
+    # Explain each node by DFS and return the output
+    return tree.dfs_explain_all(tree.root).strip()
+
     
-def initialise_plan_node(node_type, node_json):
-    # For demonstration, only SeqScanNode is implemented
-    if node_type == "Seq Scan":
-        return SeqScanNode(node_json)
-    else:
-        print(f"no matching node for: {node_type}")
-        return None
+# def initialise_plan_node(node_type, node_json):
+#     # For demonstration, only SeqScanNode is implemented
+#     if node_type == "Seq Scan":
+#         return SeqScanNode(node_json)
+#     else:
+#         print(f"no matching node for: {node_type}")
+#         return None
 
 
 import json
@@ -130,23 +139,36 @@ class Tree(object):
         # Root node of the tree
         self.root = None
 
+        # The output string for the entire query tree that will be printed on the interface
+        self.full_output = ""
+
+        # Keeps track at tree-level the value of n
+        # for the n-th node that is currently being processed
+        self.order = 1
+
     def build_tree(self, node_json):
         # Recursively build the binary tree from JSON data
-        if isinstance(node_json, list):
-            self.root = self._build_tree_recursive(node_json[0])
+        # Data given to build_tree is the value of the key "Plan"
+
+        # if isinstance(node_json, list):
+        #     self.root = self._build_tree_recursive(node_json[0])
+
+        self.root = self._build_tree_recursive(node_json)
 
     def _build_tree_recursive(self, node_json):
          # Recursively build the binary tree from node data
         if not node_json:
             return None
         
-        node = None
-        if "Plan" in node_json:
-            # Root node only
-            node = self.create_node(node_json["Plan"])
-        else:
-            # Non root node
-            node = self.create_node(node_json)
+        # node = None
+        # if "Plan" in node_json:
+        #     # Root node only
+        #     node = self.create_node(node_json["Plan"])
+        # else:
+        #     # Non root node
+        #     node = self.create_node(node_json)
+
+        node = self.create_node(node_json)
             
         # Continue running this function only if there are child nodes
         if node is not None and "Plans" in node.node_json:
@@ -156,6 +178,9 @@ class Tree(object):
             elif len(plans) == 2:
                 node.left = self._build_tree_recursive(plans[0])
                 node.right = self._build_tree_recursive(plans[1])
+
+            # node.node_json["Plans"] no longer needed, empty it
+            node.node_json["Plans"] = {}
 
         return node
 
@@ -168,7 +193,18 @@ class Tree(object):
             # After calling explain() on both child nodes
             # Merge their parent_dict before processing current node
             node.merge_dict()
-            node.explain()
+
+            # Append the explanation of the node to the full string
+            # And add separators to distinguish between different nodes
+            self.full_output = self.full_output + node.explain(self.order) + '\n'
+            if node is not self.root:
+                self.full_output = self.full_output + "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
+            
+            # Increment current node order
+            self.order += 1
+
+        return self.full_output
+
 
     def create_node(self, node_json):
         match node_json["Node Type"]:
@@ -195,13 +231,17 @@ class Node(object):
         # Brief explanation on the difference between formula and system calculations
         self.str_explain_difference = "str_explain_difference"
 
-        # The JSON of this particular node, but exclude node_json["Plans"] to save space
-        self.node_json = json.loads(node_json)
-        self.node_json = {key: value for key, value in node_json.items() if key != "Plans"}
+        # The JSON of this particular node
+        self.node_json = node_json
 
         # Left and right child Node
         self.left = None
         self.right = None
+
+        # The entire output string that will be printed by the interface.
+        # This variable should ONLY be modified between when explain() is triggered
+        # and when explain() is returned
+        self.output = ""
 
         # Dict data structure to pass to parent
         self.parent_dict = None
@@ -209,76 +249,87 @@ class Node(object):
     def manual_cost(self):
         """
         Run the SQL helper functions here.
-        Each SQL helper function will also print a line to the output
+        Each SQL helper function will also append a line to the output
         This method will return the total manually calculated cost.
 
         @returns: An integer for the manually calculated total cost
         """
         return 0
 
-    def print_explain(self):
-        """
-        Called by interface.py to display the full explanation for
-        that node
+    # def print_explain(self):
+    #     """
+    #     Called by interface.py to display the full explanation for
+    #     that node
 
-        @type node_json: json
-        @param node_json: The JSON of this particular node
-        """
+    #     @type node_json: json
+    #     @param node_json: The JSON of this particular node
+    #     """
 
-        print(self.str_explain_formula)
-        calculated_cost = self.manual_cost()
-        print("Calculated Cost: ", calculated_cost)
-        print()
-        print("PostgreSQL Total Cost: ", self.node_json["Total Cost"])
+    #     print(self.str_explain_formula)
+    #     calculated_cost = self.manual_cost()
+    #     print("Calculated Cost: ", calculated_cost)
+    #     print()
+    #     print("PostgreSQL Total Cost: ", self.node_json["Total Cost"])
 
-        if calculated_cost == self.node_json["Total Cost"]:
-            print(
-                "Manually calculated cost is the same as " + "system calculated cost."
-            )
-        else:
-            print(
-                "Manually calculated cost is different from "
-                + "system calculated cost."
-            )
-            print()
-            print("Reason for difference:")
-            print(self.str_explain_difference)
+    #     if calculated_cost == self.node_json["Total Cost"]:
+    #         print(
+    #             "Manually calculated cost is the same as " + "system calculated cost."
+    #         )
+    #     else:
+    #         print(
+    #             "Manually calculated cost is different from "
+    #             + "system calculated cost."
+    #         )
+    #         print()
+    #         print("Reason for difference:")
+    #         print(self.str_explain_difference)
         
-        # This node has been explained once
-        # Build a dict to pass to parent to mark this Node as explained
-        self.parent_dict = self.build_parent_dict() 
+    #     # This node has been explained once
+    #     # Build a dict to pass to parent to mark this Node as explained
+    #     self.parent_dict = self.build_parent_dict() 
 
-    def explain(self):
+    def explain(self, order = 0):
         """
-        Prepares the output to be printed by print_explain().
+        Prepares the output for the particular node to be printed by the interface.
         Also handles clean-up after explain() is executed successfully
+
+        @type order : int
+        @param order : The order in which this Node is being explained, relative
+                       to the entire query tree
         """
 
-        result_string = ""
+        # Reset the output just in case
+        self.output = ""
 
-        # Add the formula explanation
-        result_string += self.str_explain_formula + "\n"
+        # Briefly introduce the node with the name of the Node Type
+        self.append(str(order) + ". " + self.node_json["Node Type"])
+        self.append()
+
+        # Append the formula explanation
+        self.append(self.str_explain_formula)
         calculated_cost = self.manual_cost()
 
-        # Add the calculated cost
-        result_string += "Calculated Cost: " + str(calculated_cost) + "\n\n"
+        # Append the calculated cost
+        self.append("Calculated Cost: " + str(calculated_cost))
+        self.append()
 
-        # Add the PostgreSQL total cost
-        result_string += "PostgreSQL Total Cost: " + str(self.node_json.get("Total Cost", "Unknown")) + "\n"
+        # Append the PostgreSQL total cost
+        self.append("PostgreSQL Total Cost: " + str(self.node_json.get("Total Cost", "Unknown")))
 
         # Compare the calculated cost with PostgreSQL's total cost
         if calculated_cost == self.node_json.get("Total Cost"):
-            result_string += "Manually calculated cost is the same as system calculated cost.\n"
+            self.append("Manually calculated cost is the same as system calculated cost.")
         else:
-            result_string += "Manually calculated cost is different from system calculated cost.\n\n"
-            result_string += "Reason for difference:\n"
-            result_string += self.str_explain_difference + "\n"
+            self.append("Manually calculated cost is different from system calculated cost.")
+            self.append()
+            self.append("Reason for difference:")
+            self.append(self.str_explain_difference)
 
         # This node has been explained once
         # Build a dict to pass to parent to mark this Node as explained
         self.parent_dict = self.build_parent_dict() 
 
-        return result_string
+        return self.output
 
     def build_parent_dict(self):
         """
@@ -299,10 +350,28 @@ class Node(object):
         if self.right is not None:
             for key, value in self.right.parent_dict.items():
                 self.node_json["Right " + key] = value
+    
+    def append(self, tgt_str = "", src_str = "output", eol = '\n'):
+        '''
+        Append a string to the end of the selected string.
+        If no src_str is specified, then append to Node.output
+        If no tgt_str is specified, then the behaviour is similar to print(),
+        which is to add an empty line to the output
+        If no eol is specified, a newline character will be added after each string.
+        '''
+        match src_str:
+            case "formula":
+                self.str_explain_formula = self.str_explain_formula + str(tgt_str) + eol
+            case "difference":
+                self.str_explain_difference = self.str_explain_difference + str(tgt_str) + eol
+            case _:
+                self.output = self.output + str(tgt_str) + eol
+        
+
 
     ######### Functions that Re-queries the Database #########
 
-    def B(relation, show = True):
+    def B(self, relation, show = True):
         """
         Return number of blocks for the specified relation
 
@@ -319,10 +388,10 @@ class Node(object):
 
         num_blocks = 0
         if show: 
-            print("Number of blocks for relation '", relation, "': ", num_blocks)
+            self.append("Number of blocks for relation '", relation, "': ", num_blocks)
         return num_blocks
 
-    def T(relation, show = True):
+    def T(self, relation, show = True):
         """
         Return number of tuples for the specified relation
 
@@ -334,10 +403,10 @@ class Node(object):
 
         num_tuples = 0
         if show: 
-            print("Number of tuples for relation '", relation, "': ", num_tuples)
+            self.append("Number of tuples for relation '", relation, "': ", num_tuples)
         return num_tuples
 
-    def M(show = True):
+    def M(self, show = True):
         """
         Return buffer size allocated to DBMS in memory
 
@@ -349,10 +418,10 @@ class Node(object):
 
         buffer_size = 0
         if show: 
-            print("Buffer size: ", buffer_size)
+            self.append("Buffer size: ", buffer_size)
         return buffer_size
 
-    def V(relation, attribute, show = True):
+    def V(self, relation, attribute, show = True):
         """
         Return number of unique values for the attribute in
         the provided relation
@@ -370,7 +439,7 @@ class Node(object):
 
         num_unique = 0
         if show: 
-            print(
+            self.append(
                 "Number of unique values for attribute '",
                 attribute,
                 "' of relation '",
