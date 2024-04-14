@@ -298,29 +298,248 @@ class MyScanNode(Node):
         rel = self.node_json["Relation"]
         attr = self.node_json["Attribute"]
         return Node.B(rel) + Node.T(rel) + Node.V(rel, attr) + Node.M()
-    
+
+
 class IndexScanNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
 
-        # Explain the relation, attribute 
+        # Explain the relation, attribute
         rel = self.node_json["Relation"]
         attr = self.node_json["Attribute"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
+        args = {"attr": attr, "rel": rel}
+        self.str_explain_formula = """Index on attribute '{attr}' of relation '{rel}'
         Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(args)
+        """.format(
+            args
+        )
 
         # Explain the difference
-        self.str_explain_difference = '''PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
+        self.str_explain_difference = """PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
         Also, PostgreSQL uses optimizations such as  parallel processing and caching.
         These will either reduce cost or makes cost computation more accurate.
-        '''
+        """
 
     def manual_cost(self):
         rel = self.node_json["Relation"]
         attr = self.node_json["Attribute"]
         return Node.T(rel) / Node.V(attr, rel)
+
+
+class AppendNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combine the results of the child operations.
+        Cost Formula: SIGMA(Cost(Child))
+        """
+
+        # Explain the difference
+        self.str_explain_difference = """Placeholder
+        """
+
+    def manual_cost(self):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+        return total_cost
+
+
+class MergeAppendNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combines the sorted results of the child operations, in a way that preserves their sort order.
+        Cost Formula: SIGMA(Cost(Child)) + Merge_Cost
+        """
+
+        # Explain the difference
+        self.str_explain_difference = """Placeholder
+        """
+
+    def manual_cost(self):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+            total_rows += Node.T(child["Relation"])
+
+        # Merge cost might be proportional to the total number of rows across all children
+        # Assuming a linear merge cost model here
+        merge_cost = total_rows
+        total_cost += merge_cost
+
+        return total_cost
+
+
+class NestedLoopJoinNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        args = {"R": rel_R, "S": rel_S}
+        self.str_explain_formula = """INTRO
+        Cost Formula: min(B({R}), B({S})) + (B({R}) * B({S}))
+        """.format(
+            args
+        )
+
+        # Explain the difference
+        self.str_explain_difference = """Explanation
+        """
+
+    def manual_cost(self):
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        return min(Node.B(rel_R), Node.B(rel_S)) + (Node.B(rel_R) * Node.B(rel_S))
+
+
+class MergeJoinNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        args = {"R": rel_R, "S": rel_S}
+        self.str_explain_formula = """INTRO
+        Cost Formula: (B({R}) + B({S}))
+        """.format(
+            args
+        )
+
+        # Explain the difference
+        self.str_explain_difference = """Explanation
+        """
+
+    def manual_cost(self):
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        return Node.B(rel_R) + Node.B(rel_S)
+
+
+class HashNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        rel = self.node_json["Relation"]
+
+        args = {"rel": rel}
+        self.str_explain_formula = """Hashes the query rows for use by its parent operation, usually used to perform a JOIN.'
+        Cost Formula: Total_Cost = Scan_Cost + Hash_Build_Cost (Assume T({rel}) here for now.)
+        """.format(
+            args
+        )
+
+        # Explain the difference
+        self.str_explain_difference = """Explanation
+        """
+
+    def manual_cost(self):
+        rel = self.node_json["Relation"]
+        return Node.T(rel)
+
+
+class HashJoinNode(Node):
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        args = {"R": rel_R, "S": rel_S}
+        self.str_explain_formula = """A hash join operation between two relations, where the first relation '{rel_R}' is used to build the hash table, and the second relation '{rel_S}' is then probed against this hash table.'
+        Cost Formula: 3(B({R}) + B({S}))
+        """.format(
+            args
+        )
+
+        # Explain the difference
+        self.str_explain_difference = """Our implementation here follows the Grace hash join calculation.
+        PostgreSQL does not use the Grace hash join algorithm. 
+        Instead, it implements a variant of the hash join that is optimized for in-memory operations but can also handle larger-than-memory datasets by spilling to disk.
+        """
+
+    def manual_cost(self):
+        child_R = self.node_json["ChildNodes"][0]
+        child_S = self.node_json["ChildNodes"][1]
+
+        rel_R = child_R["Relation"]
+        rel_S = child_S["Relation"]
+
+        return 3 * (Node.B(rel_R) + Node.B(rel_S))
+
+
+class GatherNode(Node): # formula unsure
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers.
+        Cost Formula: SIGMA(Cost(Child))
+        """
+
+        # Explain the difference
+        self.str_explain_difference = """Placeholder
+        """
+
+    def manual_cost(self):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+        return total_cost
+
+
+class GatherMergeNode(Node): # formula unsure
+    def __init__(self, node_json):
+        super().__init__(node_json)
+
+        # Explain the relation, attribute
+        self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers. Gather Merge consumes sorted data, and preserves this sort order.
+        Cost Formula: SIGMA(Cost(Child)) + Merge_Cost
+        """
+
+        # Explain the difference
+        self.str_explain_difference = """Placeholder
+        """
+
+    def manual_cost(self):
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
+            total_rows += Node.T(child["Relation"])
+
+        # Merge cost might be proportional to the total number of rows across all children
+        # Assuming a linear merge cost model here
+        merge_cost = total_rows
+        total_cost += merge_cost
+
+        return total_cost
+
 
 ####################### CODE TO RUN ########################
 
