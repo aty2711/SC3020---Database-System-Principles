@@ -476,13 +476,13 @@ class SeqScanNode(Node):
         attr = filter[1:index].strip()
 
         return attr
->>>>>>> a19a00768cef88d42a6a3312cc737d886ddfb45f
-
+    
+    
 class IndexScanNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
 
-<<<<<<< HEAD
+
         # Explain the relation, attribute
         rel = self.node_json["Relation"]
         attr = self.node_json["Attribute"]
@@ -503,8 +503,6 @@ class IndexScanNode(Node):
         rel = self.node_json["Node Type"]
         attr = self.node_json["Filter"]
         return Node.T(rel) / Node.V(attr, rel)
-
-<<<<<<< HEAD
 
 class AppendNode(Node):
     def __init__(self, node_json):
