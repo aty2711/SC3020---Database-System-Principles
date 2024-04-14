@@ -90,40 +90,12 @@ def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetai
 
 
 def load_qep_explanations(plan_json):
-    # # Initialise an empty string to collect explanations.
-    # explanations = ""
-
-    # node_type = plan_json.get("Node Type", "Unknown")
-    # node_json_str = json.dumps(plan_json)  # Convert plan_json to a string if necessary
-    # node = initialise_plan_node(node_type, node_json_str)
-
-    # if hasattr(node, 'explain'):
-    #     # Append the explanation of the current node.
-    #     explanations += node.explain() + "\n"
-    #     node.print_explain()
-
-    # # Recursively process child nodes and append their explanations.
-    # for child_plan in plan_json.get("Plans", []):
-    #     explanations += load_qep_explanations(child_plan) + "\n"
-    
-    # return explanations.strip()
-
     # Build a query tree
     tree = Tree()
     tree.build_tree(plan_json)
 
     # Explain each node by DFS and return the output
     return tree.dfs_explain_all(tree.root).strip()
-
-    
-# def initialise_plan_node(node_type, node_json):
-#     # For demonstration, only SeqScanNode is implemented
-#     if node_type == "Seq Scan":
-#         return SeqScanNode(node_json)
-#     else:
-#         print(f"no matching node for: {node_type}")
-#         return None
-
 
 import json
 
@@ -150,23 +122,12 @@ class Tree(object):
         # Recursively build the binary tree from JSON data
         # Data given to build_tree is the value of the key "Plan"
 
-        # if isinstance(node_json, list):
-        #     self.root = self._build_tree_recursive(node_json[0])
-
         self.root = self._build_tree_recursive(node_json)
 
     def _build_tree_recursive(self, node_json):
          # Recursively build the binary tree from node data
         if not node_json:
             return None
-        
-        # node = None
-        # if "Plan" in node_json:
-        #     # Root node only
-        #     node = self.create_node(node_json["Plan"])
-        # else:
-        #     # Non root node
-        #     node = self.create_node(node_json)
 
         node = self.create_node(node_json)
             
@@ -255,38 +216,6 @@ class Node(object):
         @returns: An integer for the manually calculated total cost
         """
         return 0
-
-    # def print_explain(self):
-    #     """
-    #     Called by interface.py to display the full explanation for
-    #     that node
-
-    #     @type node_json: json
-    #     @param node_json: The JSON of this particular node
-    #     """
-
-    #     print(self.str_explain_formula)
-    #     calculated_cost = self.manual_cost()
-    #     print("Calculated Cost: ", calculated_cost)
-    #     print()
-    #     print("PostgreSQL Total Cost: ", self.node_json["Total Cost"])
-
-    #     if calculated_cost == self.node_json["Total Cost"]:
-    #         print(
-    #             "Manually calculated cost is the same as " + "system calculated cost."
-    #         )
-    #     else:
-    #         print(
-    #             "Manually calculated cost is different from "
-    #             + "system calculated cost."
-    #         )
-    #         print()
-    #         print("Reason for difference:")
-    #         print(self.str_explain_difference)
-        
-    #     # This node has been explained once
-    #     # Build a dict to pass to parent to mark this Node as explained
-    #     self.parent_dict = self.build_parent_dict() 
 
     def explain(self, order = 0):
         """
