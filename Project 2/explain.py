@@ -215,6 +215,38 @@ class Tree(object):
         match node_json["Node Type"]:
             case "Seq Scan": 
                 return SeqScanNode(node_json, self.login_details, self.query_details)
+            case "Index Scan": 
+                return IndexScanNode(node_json, self.login_details, self.query_details)
+            case "Index Only Scan": 
+                return IndexOnlyScanNode(node_json, self.login_details, self.query_details)
+            case "Bitmap Index Scan": 
+                return BitmapIndexScanNode(node_json, self.login_details, self.query_details)
+            case "Bitmap Heap Scan": 
+                return BitmapHeapScanNode(node_json, self.login_details, self.query_details)
+            case "Bitmap And": 
+                return BitmapAndNode(node_json, self.login_details, self.query_details)
+            case "Bitmap Or": 
+                return BitmapOrNode(node_json, self.login_details, self.query_details)
+            case "CTE Scan": 
+                return CTEScanNode(node_json, self.login_details, self.query_details)
+            case "Subquery Scan": 
+                return SubqueryScanNode(node_json, self.login_details, self.query_details)
+            case "Append": 
+                return AppendNode(node_json, self.login_details, self.query_details)
+            case "MergeAppend": 
+                return MergeAppendNode(node_json, self.login_details, self.query_details)
+            case "Nested Loop Join": 
+                return NestedLoopJoinNode(node_json, self.login_details, self.query_details)
+            case "Merge Join": 
+                return MergeJoinNode(node_json, self.login_details, self.query_details)
+            case "Hash": 
+                return HashNode(node_json, self.login_details, self.query_details)
+            case "Hash Join": 
+                return HashJoinNode(node_json, self.login_details, self.query_details)
+            case "Gather": 
+                return GatherNode(node_json, self.login_details, self.query_details)
+            case "Gather Merge": 
+                return GatherMergeNode(node_json, self.login_details, self.query_details)
             case _: 
                 return Node(node_json, self.login_details, self.query_details)
 
@@ -486,77 +518,48 @@ class MyNode(Node):
         rel = "nation"
         attr = "n_name"
         return self.B(rel) + self.T(rel) + self.V(rel, attr) + self.M()
-
-class SeqScanNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
-
-        # Three different cases
-        if "Filter" not in self.node_json:
-            # Case 1: Retrieve entire table. Selectivity = 1
-            self.str_explain_formula = '''Retrieving the entire table. Selectivity = 1
-            Cost Formula: B({rel})
-            '''.format(rel = self.node_json["Relation Name"])
-            self.str_explain_difference = '''PostgreSQL factors in parallel processing and CPU cost into the calculation
-            '''
-
-            # Explain the difference
-            self.str_explain_difference = '''PostgreSQL factors in parallel processing and CPU cost into the calculation
-            '''
-
-        elif '>' in self.node_json["Filter"] or '<' in self.node_json["Filter"]:
-            # Case 2: Retrieve a range of records. Selectivity = 1/3
-            self.str_explain_formula = '''Finding range of values. Selectivity = 1/3
-            Cost Formula: B({rel}) / 3)
-            '''.format(rel = self.node_json["Relation Name"])
-            self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
-            PostgreSQL factors in parallel processing and CPU cost into the calculation
-            '''
-
-            # Explain the difference
-            self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
-            PostgreSQL factors in parallel processing and CPU cost into the calculation
-            '''
-
-        else:
-            # Case 3: Retrieve one exact record. Selectivity = V(R, a)
-
-            # Explain the relation, attribute 
-            rel = self.node_json["Relation Name"]
-            attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
-            self.str_explain_formula = '''Finding exact match of value. Selectivity = Number of unique values
-            Cost Formula: B({rel}) / V({rel}, {attr})
-            '''.format(rel = rel, attr = attr)
-
-            # Explain the difference
-            self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
-            PostgreSQL factors in parallel processing and CPU cost into the calculation
-            '''
-
-    def manual_cost(self):
+    
+class ScanNodes(Node):
+    '''
+    Helper class that contains utility functions for most scan-related nodes
+    '''
+    def cardinality(self):
+        '''
+        Estimate the size of the tuple resulting from this query node
+        '''
         rel = self.node_json["Relation Name"]
-        attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
+        attr = self.retrieve_attribute_from_filter(self.node_json["Filter"])
+        num_blocks = self.B(rel, False)
+        num_unique = self.V(rel, attr, False)
         
         # Three different cases
         if "Filter" not in self.node_json:
             # Case 1: Retrieve entire table. Selectivity = 1
-            return self.B(rel)
+            return num_blocks
 
         elif '>' in self.node_json["Filter"] or '<' in self.node_json["Filter"]:
             # Case 2: Retrieve a range of records. Selectivity = 1/3
-            return self.B(rel) / 3
+            return num_blocks / 3
 
         else:
             # Case 3: Retrieve one exact record. Selectivity = V(R, a)
-            if self.V(rel, attr) == 0:
-                return self.B(rel)
-            return self.B(rel) / self.V(rel, attr)       
-    
-    def retrieve_attribute_from_filter(filter):
+            if num_unique == 0:
+                return 0
+            return num_blocks / num_unique  
+
+    def retrieve_attribute_from_filter(self):
         '''
-        Pass in the value from node_json["Filter"] and return the attribute
+        Pass in the value from node_json["Filter"] or node_json["Index Cond"] and return the attribute
         Example filter = "(o_custkey < 1000000)"
         '''
+
+        # Retrieve the filter from node_json
+        if "Filter" in self.node_json:
+            filter = self.node_json["Filter"]
+        elif "Index Cond" in self.node_json:
+            filter = self.node_json["Index Cond"]
+        else:
+            return
 
         # Define the comparison operators
         comparison_operators = ['<', '>', '=']
@@ -570,43 +573,59 @@ class SeqScanNode(Node):
         return attr
 
 
-class IndexScanNode(Node):
+class SeqScanNode(ScanNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
-
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
 
         # Explain the relation, attribute
-        rel = self.node_json["Relation"]
-        attr = self.node_json["Attribute"]
-        args = {"attr": attr, "rel": rel}
-        self.str_explain_formula = """Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        """.format(
-            args
-        )
+        rel = self.node_json["Relation Name"]
+        self.append(src = "formula", tgt = "Sequential scan on relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: B(" + rel + ")")
 
         # Explain the difference
-        self.str_explain_difference = """PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
-        Also, PostgreSQL uses optimizations such as  parallel processing and caching.
-        These will either reduce cost or makes cost computation more accurate.
-        """
+        self.append(src = "difference", tgt = "PostgreSQL estimates the selectivity more accurately.")
+        self.append(src = "difference", tgt = "PostgreSQL factors in parallel processing and CPU cost into the calculation")
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return self.T(rel) / self.V(attr, rel)
+        rel = self.node_json["Relation Name"]
+        return self.B(rel)
 
-class IndexOnlyScanNode(Node):
+
+class IndexScanNode(ScanNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
+
+        # Explain the relation, attribute
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
+
+        # Explain the difference
+        self.append(src = "difference", tgt = "PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.")
+        self.append(src = "difference", tgt = "Also, PostgreSQL uses optimizations such as parallel processing and caching.")
+        self.append(src = "difference", tgt = "These will either reduce cost or makes cost computation more accurate.")
+
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        return self.T(rel) / self.V(rel, attr)
+
+class IndexOnlyScanNode(ScanNodes):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
 
         # Explain the relation, attribute 
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(attr = self.node_json["Filter"], rel =self.node_json["Node Type"])
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
 
         # Explain the difference
         self.str_explain_difference = '''Index Only Scan differs from Index Scan in that PostgreSQL only needs to access the index blocks as all of the values required are in the index.
@@ -614,59 +633,48 @@ class IndexOnlyScanNode(Node):
         '''
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return self.T(rel) / self.V(attr, rel)
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        return self.T(rel) / self.V(rel, attr)
 
 class BitmapIndexScanNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
 
-        # Explain the relation, attribute 
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(args)
-
-        # Explain the difference
-        self.str_explain_difference = '''Bitmap Index Scan does not access the heap.
-        Also, PostgreSQL considers other factors such as bitmap initialization into its cost calculation
-        '''
+        self.str_explain_formula = "As PostgreSQL does not access the data blocks, the cost is negligible"
+        self.str_explain_difference = '''PostgreSQL factors in the cost of accessing the index blocks of the relation'''
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return self.T(rel) / self.V(attr, rel)
+        return 0
 
-class BitmapHeapScanNode(Node):
+class BitmapHeapScanNode(ScanNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
 
         # Explain the relation, attribute 
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        args = {'attr': attr, 'rel': rel}
-        self.str_explain_formula = '''Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        '''.format(args)
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        self.append(src = "formula", tgt = "Accessing the heap through index on attribute '" + attr + "' of relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
 
         # Explain the difference
         self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
         '''
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return self.T(rel) / self.V(attr, rel)
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        return self.T(rel) / self.V(rel, attr)
 
 class BitmapAndNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "AND operation on bit arrays are negligible"
-        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
-        '''
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation'''
 
     def manual_cost(self):
         return 0
@@ -684,6 +692,12 @@ class BitmapOrNode(Node):
 class CTEScanNode(SeqScanNode):
     '''
     CTE Scan is very similar to sequential scan, but for WITH operations
+    '''
+    pass
+
+class SubqueryScanNode(SeqScanNode):
+    '''
+    Subquery Scan is very similar to sequential scan, but for nested SELECT operations
     '''
     pass
 
