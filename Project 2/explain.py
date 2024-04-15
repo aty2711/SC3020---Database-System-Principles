@@ -275,10 +275,13 @@ class Node(object):
 
     def build_parent_dict(self):
         """
-        Builds a dict of values to pass to the parent Node for their
-        calculations
+        Builds a dict of specific values to pass to the parent Node for their
+        calculations. Only includes necessary attributes.
         """
-        return self.node_json.copy()
+        attributes = ["Node Type", "block_size", "tuple_size", "manual_cost", "postgre_cost"]
+        return {attr: self.node_json[attr] for attr in attributes if attr in self.node_json}
+    
+        # return self.node_json.copy()
 
     def merge_dict(self):
         """
@@ -292,7 +295,7 @@ class Node(object):
         if self.right is not None:
             for key, value in self.right.parent_dict.items():
                 self.node_json["Right " + key] = value
-    
+
     def append(self, tgt_str = "", src_str = "output", eol = '\n'):
         '''
         Append a string to the end of the selected string.
@@ -308,8 +311,6 @@ class Node(object):
                 self.str_explain_difference = self.str_explain_difference + str(tgt_str) + eol
             case _:
                 self.output = self.output + str(tgt_str) + eol
-        
-
 
     ######### Functions that Re-queries the Database #########
 
@@ -517,8 +518,8 @@ class SeqScanNode(Node):
         attr = filter[1:index].strip()
 
         return attr
-    
-    
+
+
 class IndexScanNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
@@ -646,13 +647,13 @@ class AppendNode(Node):
         """
 
         # Explain the difference
-        self.str_explain_difference = """Placeholder
+        self.str_explain_difference = """PostgreSQL's implementation of cost calculation takes the sum of startup cost and run cost of subpath operations, which is much more complex when compared to our assumptions.
         """
 
     def manual_cost(self):
-        total_cost = 0
-        for child in self.node_json["ChildNodes"]:
-            total_cost += child.manual_cost()
+        
+        total_cost = self.node_json["Left manual_cost"] + self.node_json["Right manual_cost"]
+        
         return total_cost
 
 
@@ -666,18 +667,17 @@ class MergeAppendNode(Node):
         """
 
         # Explain the difference
-        self.str_explain_difference = """Placeholder
+        self.str_explain_difference = """MergeAppend of PostgreSQL merges several pre-sorted input streams, using a heap that at any given instant holds the next tuple from each stream.  If there are N streams, we need about N*log2(N) tuple comparisons to construct the heap at startup, and then for each output tuple, about log2(N) comparisons to replace the top entry.
         """
 
     def manual_cost(self):
-        total_cost = 0
-        for child in self.node_json["ChildNodes"]:
-            total_cost += child.manual_cost()
-            total_rows += self.T(child["Relation"])
+        total_cost = (
+            self.node_json["Left manual_cost"] + self.node_json["Right manual_cost"]
+        )
 
         # Merge cost might be proportional to the total number of rows across all children
         # Assuming a linear merge cost model here
-        merge_cost = total_rows
+        merge_cost = self.node_json["Left tuple_size"] + self.node_json["Right tuple_size"]
         total_cost += merge_cost
 
         return total_cost
@@ -687,64 +687,52 @@ class NestedLoopJoinNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
 
-        # Explain the relation, attribute
-        child_R = self.node_json["ChildNodes"][0]
-        child_S = self.node_json["ChildNodes"][1]
-
-        rel_R = child_R["Relation"]
-        rel_S = child_S["Relation"]
+        rel_R = self.node_json["Left Node Type"]
+        rel_S = self.node_json["Right Node Type"]
 
         args = {"R": rel_R, "S": rel_S}
-        self.str_explain_formula = """INTRO
+        self.str_explain_formula = """An implementation of join or lookup where the first child node is run once, then for every row it produces, its partner is looked up in the second node.
         Cost Formula: min(B({R}), B({S})) + (B({R}) * B({S}))
         """.format(
             args
         )
 
         # Explain the difference
-        self.str_explain_difference = """Explanation
+        self.str_explain_difference = """The cost estimation in PostgreSQL sums up the startup cost, total cost of both outer and inner path, and also the rescan cost of the inner path. However, the approach is different and not by using block size, but instead it takes the cost of the path.
         """
 
     def manual_cost(self):
-        child_R = self.node_json["ChildNodes"][0]
-        child_S = self.node_json["ChildNodes"][1]
 
-        rel_R = child_R["Relation"]
-        rel_S = child_S["Relation"]
+        R_block_size = self.node_json["Left block_size"]
+        S_block_size = self.node_json["Right block_size"]
 
-        return min(self.B(rel_R), self.B(rel_S)) + (self.B(rel_R) * self.B(rel_S))
+        return min(R_block_size, S_block_size) + (R_block_size * S_block_size)
 
 
 class MergeJoinNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
 
-        # Explain the relation, attribute
-        child_R = self.node_json["ChildNodes"][0]
-        child_S = self.node_json["ChildNodes"][1]
-
-        rel_R = child_R["Relation"]
-        rel_S = child_S["Relation"]
+        rel_R = self.node_json["Left Node Type"]
+        rel_S = self.node_json["Right Node Type"]
 
         args = {"R": rel_R, "S": rel_S}
-        self.str_explain_formula = """INTRO
-        Cost Formula: (B({R}) + B({S}))
+        self.str_explain_formula = """An implementation of join which is possible when the two lists of rows to be joined are already sorted on their join keys.
+        Cost Formula: 3(B({R}) + B({S}))
         """.format(
             args
         )
 
         # Explain the difference
-        self.str_explain_difference = """Explanation
+        self.str_explain_difference = """ PostgreSQL's cost estimation is more comprehensive, accounting for sorting costs, actual data size and distribution, and system factors like disk I/O, CPU usage, and caching effects, leading to a more accurate and context-sensitive prediction.
         """
 
     def manual_cost(self):
-        child_R = self.node_json["ChildNodes"][0]
-        child_S = self.node_json["ChildNodes"][1]
 
-        rel_R = child_R["Relation"]
-        rel_S = child_S["Relation"]
+        R_block_size = self.node_json["Left block_size"]
+        S_block_size = self.node_json["Right block_size"]
 
-        return self.B(rel_R) + self.B(rel_S)
+        return 3 * (R_block_size + S_block_size)
 
 
 class HashNode(Node):
@@ -752,34 +740,36 @@ class HashNode(Node):
         super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
-        rel = self.node_json["Relation"]
+        rel = self.node_json["Left Node Type"]
 
         args = {"rel": rel}
+        # self.str_explain_formula = """Hashes the query rows for use by its parent operation, usually used to perform a JOIN.'
+        # Cost Formula: Total_Cost = Scan_Cost + Hash_Build_Cost (Assume T({rel}) here for now.)
+        # """.format(
+        #     args
+        # )
+
         self.str_explain_formula = """Hashes the query rows for use by its parent operation, usually used to perform a JOIN.'
-        Cost Formula: Total_Cost = Scan_Cost + Hash_Build_Cost (Assume T({rel}) here for now.)
-        """.format(
-            args
-        )
+        We assume the cost are calculated in the hash join node, thus ignore the cost here.
+        """
 
         # Explain the difference
-        self.str_explain_difference = """Explanation
+        self.str_explain_difference = """We assume the cost are calculated in the hash join node, thus ignore the cost here. In PostgreSQL, the cost is calculated for the whole hash join process using two versions of estimation function, no separate calculation for hash nodes.
         """
 
     def manual_cost(self):
-        rel = self.node_json["Relation"]
-        return self.T(rel)
+
+        # return self.node_json["Left tuple_size"]
+
+        return 0
 
 
 class HashJoinNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
 
-        # Explain the relation, attribute
-        child_R = self.node_json["ChildNodes"][0]
-        child_S = self.node_json["ChildNodes"][1]
-
-        rel_R = child_R["Relation"]
-        rel_S = child_S["Relation"]
+        rel_R = self.node_json["Left Node Type"]
+        rel_S = self.node_json["Right Node Type"]
 
         args = {"R": rel_R, "S": rel_S}
         self.str_explain_formula = """A hash join operation between two relations, where the first relation '{rel_R}' is used to build the hash table, and the second relation '{rel_S}' is then probed against this hash table.'
@@ -795,13 +785,10 @@ class HashJoinNode(Node):
         """
 
     def manual_cost(self):
-        child_R = self.node_json["ChildNodes"][0]
-        child_S = self.node_json["ChildNodes"][1]
+        R_block_size = self.node_json["Left block_size"]
+        S_block_size = self.node_json["Right block_size"]
 
-        rel_R = child_R["Relation"]
-        rel_S = child_S["Relation"]
-
-        return 3 * (self.B(rel_R) + self.B(rel_S))
+        return 3 * (R_block_size * S_block_size)
 
 
 class GatherNode(Node): # formula unsure
@@ -814,7 +801,7 @@ class GatherNode(Node): # formula unsure
         """
 
         # Explain the difference
-        self.str_explain_difference = """Placeholder
+        self.str_explain_difference = """PostgreSQL's implementation of cost calculation takes the sum of startup cost and run cost of subpath operations, which is much more complex when compared to our assumptions. Parallel setup  and communication cost are also taken into consideration.
         """
 
     def manual_cost(self):
@@ -834,18 +821,19 @@ class GatherMergeNode(Node): # formula unsure
         """
 
         # Explain the difference
-        self.str_explain_difference = """Placeholder
+        self.str_explain_difference = """GatherMerge of PostgreSQL merges several pre-sorted input streams, using a heap that at any given instant holds the next tuple from each stream. If there are N streams, we need about N*log2(N) tuple comparisons to construct the heap at startup, and then for each output tuple, about log2(N) comparisons to replace the top heap entry with the next tuple from the same stream. Parallel setup  and communication cost are also taken into consideration.
         """
 
     def manual_cost(self):
-        total_cost = 0
-        for child in self.node_json["ChildNodes"]:
-            total_cost += child.manual_cost()
-            total_rows += self.T(child["Relation"])
+        total_cost = (
+            self.node_json["Left manual_cost"] + self.node_json["Right manual_cost"]
+        )
 
         # Merge cost might be proportional to the total number of rows across all children
         # Assuming a linear merge cost model here
-        merge_cost = total_rows
+        merge_cost = (
+            self.node_json["Left tuple_size"] + self.node_json["Right tuple_size"]
+        )
         total_cost += merge_cost
 
         return total_cost
