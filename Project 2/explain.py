@@ -77,10 +77,15 @@ def get_database_names(login_details: LoginDetails) -> List[str]:
         Main.show_error(str(e))
 
 
-def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetails):
+def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, explain = True):
     with DatabaseConnector(login_details, querydetails.database) as cursor:
-        query = f"EXPLAIN (FORMAT JSON) {str(querydetails.query)}"
+        if explain:
+            query = f"EXPLAIN (VERBOSE, FORMAT JSON) {str(querydetails.query)}"
+        else:
+            query = str(querydetails.query)
+        
         try:
+            print(querydetails.query.strip())
             cursor.execute(query)
             query_data = cursor.fetchall()
             print(query_data)
@@ -89,16 +94,22 @@ def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetai
             return None
 
 
-def load_qep_explanations(plan_json):
-    # Build a query tree
-    tree = Tree()
+def load_qep_explanations(tree):
+    return tree.explain_all_nodes(tree.root).strip()
+
+def initialize_tree(plan_json, login_details, query_details):
+    tree = Tree(login_details, query_details)
     tree.build_tree(plan_json)
+<<<<<<< HEAD
 
     # Explain each node by DFS and return the output
     return tree.dfs_explain_all(tree.root).strip()
 
 
 import json
+=======
+    return tree
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
 
 class Tree(object):
@@ -107,11 +118,18 @@ class Tree(object):
 
     This tree is binary. If there is only one child, the child node will
     be assigned to the left child.
+
+    @param login_details: User-provided login details to the UI
+    @param query_details: Contains the user-selected database and user-input query
     """
 
-    def __init__(self):
+    def __init__(self, login_details: LoginDetails, query_details: QueryDetails):
         # Root node of the tree
         self.root = None
+
+        # Stores user-input details
+        self.login_details = login_details
+        self.query_details = query_details
 
         # The output string for the entire query tree that will be printed on the interface
         self.full_output = ""
@@ -121,11 +139,17 @@ class Tree(object):
         self.order = 1
 
     def build_tree(self, node_json):
-        # Recursively build the binary tree from JSON data
-        # Data given to build_tree is the value of the key "Plan"
+        '''
+        Recursively build the binary tree from JSON data
+        Data given to build_tree is the value of the key "Plan"
 
+        @param node_json: The JSON / dictionary of details specific to the node
+        '''
+        
+        # Saves the root and begins recursively creating the tree
         self.root = self._build_tree_recursive(node_json)
 
+<<<<<<< HEAD
     def _build_tree_recursive(self, node_json):
         # Recursively build the binary tree from node data
         if not node_json:
@@ -133,26 +157,65 @@ class Tree(object):
 
         node = self.create_node(node_json)
 
+=======
+    def _build_tree_recursive(self, node_json, count=[1]):
+        '''
+        Helper function of Node.build_tree()
+
+        Recursively build the binary tree from node data
+
+        @param node_json: The JSON / dictionary of details specific to the node
+        @param count: Mutable list which is by reference can maintain the state throughout mutable calls. 
+        @return: The instantiated node
+        '''
+
+        # Default case - Previous node is already a leaf node
+        if not node_json:
+            return None
+
+        # Instantiate a Node subclass
+        node = self.instantiate_node(node_json)
+
+        if node:
+            node.id = count[0]  # Assign the current count as the node number
+            count[0] += 1  # Increment the count for the next node
+            
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         # Continue running this function only if there are child nodes
         if node is not None and "Plans" in node.node_json:
             plans = node.node_json["Plans"]
             if len(plans) == 1:
-                node.left = self._build_tree_recursive(plans[0])
+                node.left = self._build_tree_recursive(plans[0], count)
             elif len(plans) == 2:
-                node.left = self._build_tree_recursive(plans[0])
-                node.right = self._build_tree_recursive(plans[1])
+                node.left = self._build_tree_recursive(plans[0], count)
+                node.right = self._build_tree_recursive(plans[1], count)
 
-            # node.node_json["Plans"] no longer needed, empty it
+            # node.node_json["Plans"] no longer needed, empty it to save storage
             node.node_json["Plans"] = {}
 
         return node
 
-    def dfs_explain_all(self, node):
-        # Function to perform depth-first traversal of the binary tree
+    def explain_all_nodes(self, node):
+        '''
+        Perform depth-first traversal of the query tree to obtain
+        the explanations for all of the nodes in the tree
+
+        @param node: Current node to explain.
+                     On first call of the function, node = root. 
+                     Otherwise, node is either node.left or node.right
+        @return: The output for the entire tree
+        '''
+
         if node is not None:
+<<<<<<< HEAD
             self.dfs_explain_all(node.left)
             self.dfs_explain_all(node.right)
 
+=======
+            self.explain_all_nodes(node.left)
+            self.explain_all_nodes(node.right)
+            
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
             # After calling explain() on both child nodes
             # Merge their parent_dict before processing current node
             node.merge_dict()
@@ -170,12 +233,63 @@ class Tree(object):
 
         return self.full_output
 
+<<<<<<< HEAD
     def create_node(self, node_json):
         match node_json["Node Type"]:
             case "Seq_Scan":
                 return SeqScanNode(node_json)
             case _:
                 return Node(node_json)
+=======
+
+
+    def instantiate_node(self, node_json):
+        '''
+        Checks what is the value of node_json["Node Type"]
+        
+        Then, instantiate a Node subclass based on the node type
+
+        @param node_json: The JSON / dictionary of details specific to the node
+        @return: An instance of the selected subclass of Node
+        '''
+        match node_json["Node Type"]:
+            case "Seq Scan": 
+                return SeqScanNode(node_json, self.login_details, self.query_details)
+            case "Index Scan": 
+                return IndexScanNode(node_json, self.login_details, self.query_details)
+            case "Index Only Scan": 
+                return IndexOnlyScanNode(node_json, self.login_details, self.query_details)
+            case "Bitmap Index Scan": 
+                return BitmapIndexScanNode(node_json, self.login_details, self.query_details)
+            case "Bitmap Heap Scan": 
+                return BitmapHeapScanNode(node_json, self.login_details, self.query_details)
+            case "Bitmap And": 
+                return BitmapAndNode(node_json, self.login_details, self.query_details)
+            case "Bitmap Or": 
+                return BitmapOrNode(node_json, self.login_details, self.query_details)
+            case "CTE Scan": 
+                return CTEScanNode(node_json, self.login_details, self.query_details)
+            case "Subquery Scan": 
+                return SubqueryScanNode(node_json, self.login_details, self.query_details)
+            case "Append": 
+                return AppendNode(node_json, self.login_details, self.query_details)
+            case "MergeAppend": 
+                return MergeAppendNode(node_json, self.login_details, self.query_details)
+            case "Nested Loop Join": 
+                return NestedLoopJoinNode(node_json, self.login_details, self.query_details)
+            case "Merge Join": 
+                return MergeJoinNode(node_json, self.login_details, self.query_details)
+            case "Hash": 
+                return HashNode(node_json, self.login_details, self.query_details)
+            case "Hash Join": 
+                return HashJoinNode(node_json, self.login_details, self.query_details)
+            case "Gather": 
+                return GatherNode(node_json, self.login_details, self.query_details)
+            case "Gather Merge": 
+                return GatherMergeNode(node_json, self.login_details, self.query_details)
+            case _: 
+                return Node(node_json, self.login_details, self.query_details)
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
 
 class Node(object):
@@ -187,9 +301,17 @@ class Node(object):
     and functions with their own implementations:
     - __init__(self) to replace str_explain_formula and str_explain_difference
     - manual_cost(node_json)
+
+    @param node_json: The JSON / dictionary of details specific to the node
+    @param login_details: User-provided login details to the UI
+    @param query_details: Contains the user-selected database and user-input query
     """
 
-    def __init__(self, node_json):
+    def __init__(self, node_json, login_details, query_details):
+        # Stores user-input details
+        self.login_details = login_details
+        self.query_details = query_details
+
         # Given formula or how formula is derived
         self.str_explain_formula = "str_explain_formula"
 
@@ -238,7 +360,7 @@ class Node(object):
         self.output = ""
 
         # Briefly introduce the node with the name of the Node Type
-        self.append(str(order) + ". " + self.node_json["Node Type"])
+        self.append(str(order) + ". " + self.node_json["Node Type"] + " (#" + str(self.id) + ")")
         self.append()
 
         # Append the formula explanation
@@ -304,99 +426,181 @@ class Node(object):
             for key, value in self.right.parent_dict.items():
                 self.node_json["Right " + key] = value
 
+<<<<<<< HEAD
     def append(self, tgt_str="", src_str="output", eol="\n"):
         """
+=======
+    def append(self, tgt: str = "", src: str = "output", eol: str = '\n'):
+        '''
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         Append a string to the end of the selected string.
-        If no src_str is specified, then append to Node.output
-        If no tgt_str is specified, then the behaviour is similar to print(),
+        If no src is specified, then append to Node.output
+        If no tgt is specified, then the behaviour is similar to print(),
         which is to add an empty line to the output
         If no eol is specified, a newline character will be added after each string.
+<<<<<<< HEAD
         """
         match src_str:
+=======
+
+        @param tgt: The string to append to at the end of the source string
+        @param src: Specifies which string to append the target string to.
+                    If append to self.str_explain_formula, src = "formula"
+                    If append to self.str_explain_difference, src = "difference"
+                    Otherwise, append to self.output
+        @param eol: End-of-line. Append additionally this character or string to the end of the target string
+        '''
+
+        match src:
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
             case "formula":
-                self.str_explain_formula = self.str_explain_formula + str(tgt_str) + eol
+                self.str_explain_formula = self.str_explain_formula + tgt + eol
             case "difference":
+<<<<<<< HEAD
                 self.str_explain_difference = (
                     self.str_explain_difference + str(tgt_str) + eol
                 )
+=======
+                self.str_explain_difference = self.str_explain_difference + tgt + eol
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
             case _:
-                self.output = self.output + str(tgt_str) + eol
+                self.output = self.output + tgt + eol
 
     ######### Functions that Re-queries the Database #########
 
+<<<<<<< HEAD
     def B(self, relation, show=True):
+=======
+    def B(self, relation: str, show: bool = True):
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         """
         Return number of blocks for the specified relation
 
-        @type show : boolean
+        @param relation : The relation to query
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT pg_relation_size('{rel}') / current_setting('block_size')::int AS num_blocks
+        '''.format(rel = relation)
 
-        # SELECT pg_relation_size('relation_name') / current_setting('block_size')::int AS total_blocks
-        # FROM pg_class
-        # WHERE relname = 'relation_name';
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        num_blocks = result[0][0]
 
+<<<<<<< HEAD
         num_blocks = 0
         if show:
             self.append("Number of blocks for relation '", relation, "': ", num_blocks)
         return num_blocks
 
     def T(self, relation, show=True):
+=======
+        if show: 
+            self.append("Number of blocks for relation '" + relation + "': " + str(num_blocks))
+        return num_blocks
+
+    def T(self, relation: str, show: bool = True):
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         """
         Return number of tuples for the specified relation
 
-        @type show : boolean
+        @param relation : The relation to query
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT COUNT(*) as num_tuples FROM {rel}
+        '''.format(rel = relation)
 
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        num_tuples = result[0][0]
+
+<<<<<<< HEAD
         num_tuples = 0
         if show:
             self.append("Number of tuples for relation '", relation, "': ", num_tuples)
         return num_tuples
 
     def M(self, show=True):
+=======
+        if show: 
+            self.append("Number of tuples for relation '" + relation + "': " + str(num_tuples))
+        return num_tuples
+
+    def M(self, show: bool = True):
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         """
         Return buffer size allocated to DBMS in memory
 
-        @type show : boolean
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT setting FROM pg_settings WHERE name = 'shared_buffers';
+        '''
 
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        buffer_size = int(result[0][0])
+
+<<<<<<< HEAD
         buffer_size = 0
         if show:
             self.append("Buffer size: ", buffer_size)
         return buffer_size
 
     def V(self, relation, attribute, show=True):
+=======
+        if show: 
+            self.append("Buffer size: " + str(buffer_size))
+        return buffer_size
+
+    def V(self, relation: str, attribute: str, show: bool = True):
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         """
         Return number of unique values for the attribute in
         the provided relation
 
-        @type show : boolean
+        @param relation : The relation to query
+        @param attribute : The attribute of the relation to query
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT COUNT(DISTINCT {attr}) AS num_unique_values FROM {rel};
+        '''.format(attr = attribute, rel = relation)
 
-        # SELECT n_distinct
-        # FROM pg_stats
-        # WHERE tablename = 'relation_name' AND attname = 'attribute_name';
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        num_unique = result[0][0]
 
+<<<<<<< HEAD
         num_unique = 0
         if show:
+=======
+        if show: 
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
             self.append(
-                "Number of unique values for attribute '",
-                attribute,
-                "' of relation '",
-                relation,
-                "': ",
-                num_unique,
+                "Number of unique values for attribute '" +
+                attribute +
+                "' of relation '" +
+                relation +
+                "': " +
+                str(num_unique)
             )
         return num_unique
 
@@ -404,15 +608,19 @@ class Node(object):
 #################### NODE SUBCLASSES ######################
 
 
-class MyScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+class MyNode(Node):
+    '''
+    Testing node. Will print all of B(), T(), V() and M
+    '''
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "Formula: B(rel) + T(rel) + V(rel, attr) + M"
         self.str_explain_difference = "Some explanation for difference"
 
     def manual_cost(self):
         rel = "nation"
         attr = "n_name"
+<<<<<<< HEAD
         return Node.B(rel) + Node.T(rel) + Node.V(rel, attr) + Node.M()
 
 
@@ -472,17 +680,35 @@ class SeqScanNode(Node):
         rel = self.node_json["Node Type"]
         attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
 
+=======
+        return self.B(rel) + self.T(rel) + self.V(rel, attr) + self.M()
+    
+class ScanNodes(Node):
+    '''
+    Helper class that contains utility functions for most scan-related nodes
+    '''
+    def cardinality(self):
+        '''
+        Estimate the size of the tuple resulting from this query node
+        '''
+        rel = self.node_json["Relation Name"]
+        attr = self.retrieve_attribute_from_filter(self.node_json["Filter"])
+        num_blocks = self.B(rel, False)
+        num_unique = self.V(rel, attr, False)
+        
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         # Three different cases
         if "Filter" not in self.node_json:
             # Case 1: Retrieve entire table. Selectivity = 1
-            return Node.B(rel)
+            return num_blocks
 
         elif ">" in self.node_json["Filter"] or "<" in self.node_json["Filter"]:
             # Case 2: Retrieve a range of records. Selectivity = 1/3
-            return Node.B(rel) / 3
+            return num_blocks / 3
 
         else:
             # Case 3: Retrieve one exact record. Selectivity = V(R, a)
+<<<<<<< HEAD
             if Node.V(rel, attr) == 0:
                 return Node.B(rel)
             return Node.B(rel) / Node.V(rel, attr)
@@ -490,8 +716,25 @@ class SeqScanNode(Node):
     def retrieve_attribute_from_filter(filter):
         """
         Pass in the value from node_json["Filter"] and return the attribute
+=======
+            if num_unique == 0:
+                return 0
+            return num_blocks / num_unique  
+
+    def retrieve_attribute_from_filter(self):
+        '''
+        Pass in the value from node_json["Filter"] or node_json["Index Cond"] and return the attribute
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
         Example filter = "(o_custkey < 1000000)"
         """
+
+        # Retrieve the filter from node_json
+        if "Filter" in self.node_json:
+            filter = self.node_json["Filter"]
+        elif "Index Cond" in self.node_json:
+            filter = self.node_json["Index Cond"]
+        else:
+            return
 
         # Define the comparison operators
         comparison_operators = ["<", ">", "="]
@@ -505,32 +748,33 @@ class SeqScanNode(Node):
         return attr
 
 
+<<<<<<< HEAD
 class IndexScanNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
+=======
+class SeqScanNode(ScanNodes):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
         # Explain the relation, attribute
-        rel = self.node_json["Relation"]
-        attr = self.node_json["Attribute"]
-        args = {"attr": attr, "rel": rel}
-        self.str_explain_formula = """Index on attribute '{attr}' of relation '{rel}'
-        Cost Formula: T({rel}) / V({rel}, {attr})
-        """.format(
-            args
-        )
+        rel = self.node_json["Relation Name"]
+        self.append(src = "formula", tgt = "Sequential scan on relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: B(" + rel + ")")
 
         # Explain the difference
-        self.str_explain_difference = """PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.
-        Also, PostgreSQL uses optimizations such as  parallel processing and caching.
-        These will either reduce cost or makes cost computation more accurate.
-        """
+        self.append(src = "difference", tgt = "PostgreSQL estimates the selectivity more accurately.")
+        self.append(src = "difference", tgt = "PostgreSQL factors in parallel processing and CPU cost into the calculation")
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        rel = self.node_json["Relation Name"]
+        return self.B(rel)
 
 
+<<<<<<< HEAD
 class IndexOnlyScanNode(Node):
     def __init__(self, node_json):
         super().__init__(node_json)
@@ -544,6 +788,41 @@ class IndexOnlyScanNode(Node):
         """.format(
             attr=self.node_json["Filter"], rel=self.node_json["Node Type"]
         )
+=======
+class IndexScanNode(ScanNodes):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
+
+        # Explain the relation, attribute
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
+
+        # Explain the difference
+        self.append(src = "difference", tgt = "PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.")
+        self.append(src = "difference", tgt = "Also, PostgreSQL uses optimizations such as parallel processing and caching.")
+        self.append(src = "difference", tgt = "These will either reduce cost or makes cost computation more accurate.")
+
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        return self.T(rel) / self.V(rel, attr)
+
+class IndexOnlyScanNode(ScanNodes):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
         # Explain the difference
         self.str_explain_difference = """Index Only Scan differs from Index Scan in that PostgreSQL only needs to access the index blocks as all of the values required are in the index.
@@ -551,15 +830,18 @@ class IndexOnlyScanNode(Node):
         """
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        return self.T(rel) / self.V(rel, attr)
 
 
 class BitmapIndexScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
 
+<<<<<<< HEAD
         # Explain the relation, attribute
         rel = self.node_json["Node Type"]
         attr = self.node_json["Filter"]
@@ -574,12 +856,15 @@ class BitmapIndexScanNode(Node):
         self.str_explain_difference = """Bitmap Index Scan does not access the heap.
         Also, PostgreSQL considers other factors such as bitmap initialization into its cost calculation
         """
+=======
+        self.str_explain_formula = "As PostgreSQL does not access the data blocks, the cost is negligible"
+        self.str_explain_difference = '''PostgreSQL factors in the cost of accessing the index blocks of the relation'''
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        return 0
 
+<<<<<<< HEAD
 
 class BitmapHeapScanNode(Node):
     def __init__(self, node_json):
@@ -594,31 +879,48 @@ class BitmapHeapScanNode(Node):
         """.format(
             args
         )
+=======
+class BitmapHeapScanNode(ScanNodes):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
+
+        # Explain the relation, attribute 
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        self.append(src = "formula", tgt = "Accessing the heap through index on attribute '" + attr + "' of relation '" + rel + "'")
+        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
         # Explain the difference
         self.str_explain_difference = """PostgreSQL factors in overhead of bitmap access into cost calculation
         """
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
-        attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        return self.T(rel) / self.V(rel, attr)
 
 
 class BitmapAndNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "AND operation on bit arrays are negligible"
+<<<<<<< HEAD
         self.str_explain_difference = """PostgreSQL factors in overhead of bitmap access into cost calculation
         """
+=======
+        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation'''
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
     def manual_cost(self):
         return 0
 
 
 class BitmapOrNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "OR operation on bit arrays are negligible"
         self.str_explain_difference = """PostgreSQL factors in overhead of bitmap access into cost calculation
         """
@@ -634,10 +936,18 @@ class CTEScanNode(SeqScanNode):
 
     pass
 
+<<<<<<< HEAD
+=======
+class SubqueryScanNode(SeqScanNode):
+    '''
+    Subquery Scan is very similar to sequential scan, but for nested SELECT operations
+    '''
+    pass
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
 class AppendNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combine the results of the child operations.
@@ -658,8 +968,8 @@ class AppendNode(Node):
 
 
 class MergeAppendNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the sorted results of the child operations, in a way that preserves their sort order.
@@ -686,8 +996,8 @@ class MergeAppendNode(Node):
 
 
 class NestedLoopJoinNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         rel_R = self.node_json["Left Node Type"]
         rel_S = self.node_json["Right Node Type"]
@@ -712,8 +1022,8 @@ class NestedLoopJoinNode(Node):
 
 
 class MergeJoinNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         rel_R = self.node_json["Left Node Type"]
         rel_S = self.node_json["Right Node Type"]
@@ -738,8 +1048,8 @@ class MergeJoinNode(Node):
 
 
 class HashNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         rel = self.node_json["Left Node Type"]
@@ -767,8 +1077,8 @@ class HashNode(Node):
 
 
 class HashJoinNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         rel_R = self.node_json["Left Node Type"]
         rel_S = self.node_json["Right Node Type"]
@@ -793,9 +1103,15 @@ class HashJoinNode(Node):
         return 3 * (R_block_size * S_block_size)
 
 
+<<<<<<< HEAD
 class GatherNode(Node):  # formula unsure
     def __init__(self, node_json):
         super().__init__(node_json)
+=======
+class GatherNode(Node): # formula unsure
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers.
@@ -807,17 +1123,21 @@ class GatherNode(Node):  # formula unsure
         """
 
     def manual_cost(self):
-
-        total_cost = (
-            self.node_json["Left manual_cost"] + self.node_json["Right manual_cost"]
-        )
-
+        total_cost = 0
+        for child in self.node_json["ChildNodes"]:
+            total_cost += child.manual_cost()
         return total_cost
 
 
+<<<<<<< HEAD
 class GatherMergeNode(Node):  # formula unsure
     def __init__(self, node_json):
         super().__init__(node_json)
+=======
+class GatherMergeNode(Node): # formula unsure
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers. Gather Merge consumes sorted data, and preserves this sort order.
@@ -841,6 +1161,7 @@ class GatherMergeNode(Node):  # formula unsure
         total_cost += merge_cost
 
         return total_cost
+<<<<<<< HEAD
 
 
 ####################### CODE TO RUN ########################
@@ -885,3 +1206,5 @@ sample_qep = """
 
 """
 load_qep_explanations(json.loads(sample_qep))
+=======
+>>>>>>> 754ee809551b8328166a122b564fce143433dc34
