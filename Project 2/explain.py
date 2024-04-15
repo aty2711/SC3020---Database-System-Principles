@@ -77,10 +77,15 @@ def get_database_names(login_details: LoginDetails) -> List[str]:
         Main.show_error(str(e))
 
 
-def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetails):
+def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, explain = True):
     with DatabaseConnector(login_details, querydetails.database) as cursor:
-        query = f"EXPLAIN (FORMAT JSON) {str(querydetails.query)}"
+        if explain:
+            query = f"EXPLAIN (FORMAT JSON) {str(querydetails.query)}"
+        else:
+            query = str(querydetails.query)
+        
         try:
+            print(querydetails.query)
             cursor.execute(query)
             query_data = cursor.fetchall()
             print(query_data)
@@ -89,9 +94,9 @@ def retrieve_explain_query(login_details: LoginDetails, querydetails: QueryDetai
             return None
 
 
-def load_qep_explanations(plan_json):
+def load_qep_explanations(plan_json, login_details, query_details):
     # Build a query tree
-    tree = Tree()
+    tree = Tree(login_details, query_details)
     tree.build_tree(plan_json)
 
     # Explain each node by DFS and return the output
@@ -107,9 +112,13 @@ class Tree(object):
     be assigned to the left child.
     """
 
-    def __init__(self):
+    def __init__(self, login_details, query_details):
         # Root node of the tree
         self.root = None
+
+        # Stores user-input details
+        self.login_details = login_details
+        self.query_details = query_details
 
         # The output string for the entire query tree that will be printed on the interface
         self.full_output = ""
@@ -169,10 +178,10 @@ class Tree(object):
 
     def create_node(self, node_json):
         match node_json["Node Type"]:
-            case "Seq_Scan": 
-                return SeqScanNode(node_json)
+            case "Seq Scan": 
+                return SeqScanNode(node_json, self.login_details, self.query_details)
             case _: 
-                return Node(node_json)
+                return Node(node_json, self.login_details, self.query_details)
 
 class Node(object):
     """
@@ -185,7 +194,11 @@ class Node(object):
     - manual_cost(node_json)
     """
 
-    def __init__(self, node_json):
+    def __init__(self, node_json, login_details, query_details):
+        # Stores user-input details
+        self.login_details = login_details
+        self.query_details = query_details
+
         # Given formula or how formula is derived
         self.str_explain_formula = "str_explain_formula"
 
@@ -308,16 +321,23 @@ class Node(object):
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT pg_relation_size('{rel}') / current_setting('block_size')::int AS num_blocks
+        '''.format(rel = relation)
 
-# SELECT pg_relation_size('relation_name') / current_setting('block_size')::int AS total_blocks
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        num_blocks = result[0][0]
+
+# SELECT pg_relation_size({rel}) / current_setting('block_size')::int AS total_blocks
 # FROM pg_class
-# WHERE relname = 'relation_name';
+# WHERE relname = {rel};
 
-
-        num_blocks = 0
         if show: 
-            self.append("Number of blocks for relation '", relation, "': ", num_blocks)
+            self.append("Number of blocks for relation '" + relation + "': " + str(num_blocks))
         return num_blocks
 
     def T(self, relation, show = True):
@@ -328,11 +348,19 @@ class Node(object):
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT COUNT(*) as num_tuples FROM {rel}
+        '''.format(rel = relation)
 
-        num_tuples = 0
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        num_tuples = result[0][0]
+
         if show: 
-            self.append("Number of tuples for relation '", relation, "': ", num_tuples)
+            self.append("Number of tuples for relation '" + relation + "': " + str(num_tuples))
         return num_tuples
 
     def M(self, show = True):
@@ -343,11 +371,19 @@ class Node(object):
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT setting FROM pg_settings WHERE name = 'shared_buffers';
+        '''
 
-        buffer_size = 0
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        buffer_size = int(result[0][0])
+
         if show: 
-            self.append("Buffer size: ", buffer_size)
+            self.append("Buffer size: " + str(buffer_size))
         return buffer_size
 
     def V(self, relation, attribute, show = True):
@@ -359,22 +395,29 @@ class Node(object):
         @param show : Whether to print out the results of the query
         """
 
-        # CODE TO QUERY THE DATABASE
+        # Prepare the query
+        query_details = QueryDetails
+        query_details.database = self.query_details.database
+        query_details.query = '''
+        SELECT COUNT(DISTINCT {attr}) AS num_unique_values FROM {rel};
+        '''.format(attr = attribute, rel = relation)
 
 # SELECT n_distinct
 # FROM pg_stats
 # WHERE tablename = 'relation_name' AND attname = 'attribute_name';
 
+        # Execute and retrieve the values
+        result = retrieve_query(self.login_details, query_details, False)
+        num_unique = result[0][0]
 
-        num_unique = 0
         if show: 
             self.append(
-                "Number of unique values for attribute '",
-                attribute,
-                "' of relation '",
-                relation,
-                "': ",
-                num_unique,
+                "Number of unique values for attribute '" +
+                attribute +
+                "' of relation '" +
+                relation +
+                "': " +
+                str(num_unique)
             )
         return num_unique
 
@@ -383,26 +426,26 @@ class Node(object):
 
 
 class MyScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "Formula: B(rel) + T(rel) + V(rel, attr) + M"
         self.str_explain_difference = "Some explanation for difference"
 
     def manual_cost(self):
         rel = "nation"
         attr = "n_name"
-        return Node.B(rel) + Node.T(rel) + Node.V(rel, attr) + Node.M()
+        return self.B(rel) + self.T(rel) + self.V(rel, attr) + self.M()
 
 class SeqScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Three different cases
         if "Filter" not in self.node_json:
             # Case 1: Retrieve entire table. Selectivity = 1
             self.str_explain_formula = '''Retrieving the entire table. Selectivity = 1
             Cost Formula: B({rel})
-            '''.format(rel = self.node_json["Node Type"])
+            '''.format(rel = self.node_json["Relation Name"])
             self.str_explain_difference = '''PostgreSQL factors in parallel processing and CPU cost into the calculation
             '''
 
@@ -414,7 +457,7 @@ class SeqScanNode(Node):
             # Case 2: Retrieve a range of records. Selectivity = 1/3
             self.str_explain_formula = '''Finding range of values. Selectivity = 1/3
             Cost Formula: B({rel}) / 3)
-            '''.format(rel = self.node_json["Node Type"])
+            '''.format(rel = self.node_json["Relation Name"])
             self.str_explain_difference = '''PostgreSQL estimates the selectivity more accurately.
             PostgreSQL factors in parallel processing and CPU cost into the calculation
             '''
@@ -428,7 +471,7 @@ class SeqScanNode(Node):
             # Case 3: Retrieve one exact record. Selectivity = V(R, a)
 
             # Explain the relation, attribute 
-            rel = self.node_json["Node Type"]
+            rel = self.node_json["Relation Name"]
             attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
             self.str_explain_formula = '''Finding exact match of value. Selectivity = Number of unique values
             Cost Formula: B({rel}) / V({rel}, {attr})
@@ -440,23 +483,23 @@ class SeqScanNode(Node):
             '''
 
     def manual_cost(self):
-        rel = self.node_json["Node Type"]
+        rel = self.node_json["Relation Name"]
         attr = SeqScanNode.retrieve_attribute_from_filter(self.node_json["Filter"])
         
         # Three different cases
         if "Filter" not in self.node_json:
             # Case 1: Retrieve entire table. Selectivity = 1
-            return Node.B(rel)
+            return self.B(rel)
 
         elif '>' in self.node_json["Filter"] or '<' in self.node_json["Filter"]:
             # Case 2: Retrieve a range of records. Selectivity = 1/3
-            return Node.B(rel) / 3
+            return self.B(rel) / 3
 
         else:
             # Case 3: Retrieve one exact record. Selectivity = V(R, a)
-            if Node.V(rel, attr) == 0:
-                return Node.B(rel)
-            return Node.B(rel) / Node.V(rel, attr)       
+            if self.V(rel, attr) == 0:
+                return self.B(rel)
+            return self.B(rel) / self.V(rel, attr)       
     
     def retrieve_attribute_from_filter(filter):
         '''
@@ -477,8 +520,8 @@ class SeqScanNode(Node):
     
     
 class IndexScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
 
         # Explain the relation, attribute
@@ -500,11 +543,11 @@ class IndexScanNode(Node):
     def manual_cost(self):
         rel = self.node_json["Node Type"]
         attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        return self.T(rel) / self.V(attr, rel)
 
 class IndexOnlyScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute 
         rel = self.node_json["Node Type"]
@@ -522,11 +565,11 @@ class IndexOnlyScanNode(Node):
     def manual_cost(self):
         rel = self.node_json["Node Type"]
         attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        return self.T(rel) / self.V(attr, rel)
 
 class BitmapIndexScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute 
         rel = self.node_json["Node Type"]
@@ -544,11 +587,11 @@ class BitmapIndexScanNode(Node):
     def manual_cost(self):
         rel = self.node_json["Node Type"]
         attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        return self.T(rel) / self.V(attr, rel)
 
 class BitmapHeapScanNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute 
         rel = self.node_json["Node Type"]
@@ -565,11 +608,11 @@ class BitmapHeapScanNode(Node):
     def manual_cost(self):
         rel = self.node_json["Node Type"]
         attr = self.node_json["Filter"]
-        return Node.T(rel) / Node.V(attr, rel)
+        return self.T(rel) / self.V(attr, rel)
 
 class BitmapAndNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "AND operation on bit arrays are negligible"
         self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
         '''
@@ -578,8 +621,8 @@ class BitmapAndNode(Node):
         return 0
 
 class BitmapOrNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "OR operation on bit arrays are negligible"
         self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation
         '''
@@ -594,8 +637,8 @@ class CTEScanNode(SeqScanNode):
     pass
 
 class AppendNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combine the results of the child operations.
@@ -614,8 +657,8 @@ class AppendNode(Node):
 
 
 class MergeAppendNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the sorted results of the child operations, in a way that preserves their sort order.
@@ -630,7 +673,7 @@ class MergeAppendNode(Node):
         total_cost = 0
         for child in self.node_json["ChildNodes"]:
             total_cost += child.manual_cost()
-            total_rows += Node.T(child["Relation"])
+            total_rows += self.T(child["Relation"])
 
         # Merge cost might be proportional to the total number of rows across all children
         # Assuming a linear merge cost model here
@@ -641,8 +684,8 @@ class MergeAppendNode(Node):
 
 
 class NestedLoopJoinNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         child_R = self.node_json["ChildNodes"][0]
@@ -669,12 +712,12 @@ class NestedLoopJoinNode(Node):
         rel_R = child_R["Relation"]
         rel_S = child_S["Relation"]
 
-        return min(Node.B(rel_R), Node.B(rel_S)) + (Node.B(rel_R) * Node.B(rel_S))
+        return min(self.B(rel_R), self.B(rel_S)) + (self.B(rel_R) * self.B(rel_S))
 
 
 class MergeJoinNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         child_R = self.node_json["ChildNodes"][0]
@@ -701,12 +744,12 @@ class MergeJoinNode(Node):
         rel_R = child_R["Relation"]
         rel_S = child_S["Relation"]
 
-        return Node.B(rel_R) + Node.B(rel_S)
+        return self.B(rel_R) + self.B(rel_S)
 
 
 class HashNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         rel = self.node_json["Relation"]
@@ -724,12 +767,12 @@ class HashNode(Node):
 
     def manual_cost(self):
         rel = self.node_json["Relation"]
-        return Node.T(rel)
+        return self.T(rel)
 
 
 class HashJoinNode(Node):
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         child_R = self.node_json["ChildNodes"][0]
@@ -758,12 +801,12 @@ class HashJoinNode(Node):
         rel_R = child_R["Relation"]
         rel_S = child_S["Relation"]
 
-        return 3 * (Node.B(rel_R) + Node.B(rel_S))
+        return 3 * (self.B(rel_R) + self.B(rel_S))
 
 
 class GatherNode(Node): # formula unsure
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers.
@@ -782,8 +825,8 @@ class GatherNode(Node): # formula unsure
 
 
 class GatherMergeNode(Node): # formula unsure
-    def __init__(self, node_json):
-        super().__init__(node_json)
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers. Gather Merge consumes sorted data, and preserves this sort order.
@@ -798,7 +841,7 @@ class GatherMergeNode(Node): # formula unsure
         total_cost = 0
         for child in self.node_json["ChildNodes"]:
             total_cost += child.manual_cost()
-            total_rows += Node.T(child["Relation"])
+            total_rows += self.T(child["Relation"])
 
         # Merge cost might be proportional to the total number of rows across all children
         # Assuming a linear merge cost model here
@@ -848,4 +891,4 @@ sample_qep = """
 }
 
 """
-load_qep_explanations(json.loads(sample_qep))
+# load_qep_explanations(json.loads(sample_qep))

@@ -5,7 +5,7 @@ import sys
 import pyqtgraph as pg
 import json
 
-from explain import QueryDetails, LoginDetails, retrieve_explain_query, load_qep_explanations
+from explain import QueryDetails, LoginDetails, retrieve_query, load_qep_explanations
 
 class LoginWidget(object):
     def __init__(self, login_details):
@@ -196,7 +196,7 @@ class MainUI(QMainWindow):
         query_details = QueryDetails
         query_details.database = database_name
         query_details.query = query
-        qep = retrieve_explain_query(self.login_details, query_details)
+        qep = retrieve_query(self.login_details, query_details)
         self.query_output.setText(json.dumps(qep[0][0][0], indent=3))
         self.populate_qep_tree(qep[0][0][0]['Plan'], None)
          # Resize columns to fit content
@@ -204,7 +204,7 @@ class MainUI(QMainWindow):
         self.qep_tree.setColumnWidth(1,100)
 
         # Append explanations into output field
-        explanations = load_qep_explanations(qep[0][0][0]['Plan'])
+        explanations = load_qep_explanations(qep[0][0][0]['Plan'], self.login_details, query_details)
         self.append_query_output(explanations)
         
     def append_query_output(self, textual_query):
