@@ -85,7 +85,7 @@ def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, expl
             query = str(querydetails.query)
         
         try:
-            print(querydetails.query)
+            print(querydetails.query.strip())
             cursor.execute(query)
             query_data = cursor.fetchall()
             print(query_data)
