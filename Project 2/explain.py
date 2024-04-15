@@ -80,7 +80,7 @@ def get_database_names(login_details: LoginDetails) -> List[str]:
 def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, explain = True):
     with DatabaseConnector(login_details, querydetails.database) as cursor:
         if explain:
-            query = f"EXPLAIN (FORMAT JSON) {str(querydetails.query)}"
+            query = f"EXPLAIN (VERBOSE, FORMAT JSON) {str(querydetails.query)}"
         else:
             query = str(querydetails.query)
         
@@ -94,15 +94,13 @@ def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, expl
             return None
 
 
-def load_qep_explanations(plan_json, login_details, query_details):
-    # Build a query tree
-    tree = Tree(login_details, query_details)
-    tree.build_tree(plan_json)
-
-    # Explain each node by DFS and return the output
+def load_qep_explanations(tree):
     return tree.explain_all_nodes(tree.root).strip()
 
-import json
+def initialize_tree(plan_json, login_details, query_details):
+    tree = Tree(login_details, query_details)
+    tree.build_tree(plan_json)
+    return tree
 
 class Tree(object):
     """
@@ -141,13 +139,14 @@ class Tree(object):
         # Saves the root and begins recursively creating the tree
         self.root = self._build_tree_recursive(node_json)
 
-    def _build_tree_recursive(self, node_json):
+    def _build_tree_recursive(self, node_json, count=[1]):
         '''
         Helper function of Node.build_tree()
 
         Recursively build the binary tree from node data
 
         @param node_json: The JSON / dictionary of details specific to the node
+        @param count: Mutable list which is by reference can maintain the state throughout mutable calls. 
         @return: The instantiated node
         '''
 
@@ -157,15 +156,19 @@ class Tree(object):
 
         # Instantiate a Node subclass
         node = self.instantiate_node(node_json)
+
+        if node:
+            node.id = count[0]  # Assign the current count as the node number
+            count[0] += 1  # Increment the count for the next node
             
         # Continue running this function only if there are child nodes
         if node is not None and "Plans" in node.node_json:
             plans = node.node_json["Plans"]
             if len(plans) == 1:
-                node.left = self._build_tree_recursive(plans[0])
+                node.left = self._build_tree_recursive(plans[0], count)
             elif len(plans) == 2:
-                node.left = self._build_tree_recursive(plans[0])
-                node.right = self._build_tree_recursive(plans[1])
+                node.left = self._build_tree_recursive(plans[0], count)
+                node.right = self._build_tree_recursive(plans[1], count)
 
             # node.node_json["Plans"] no longer needed, empty it to save storage
             node.node_json["Plans"] = {}
@@ -201,6 +204,7 @@ class Tree(object):
             self.order += 1
 
         return self.full_output
+
 
 
     def instantiate_node(self, node_json):
@@ -291,6 +295,9 @@ class Node(object):
         # Dict data structure to pass to parent
         self.parent_dict = None
 
+        # Id for node for easy reference
+        self.id = None
+
     def manual_cost(self):
         """
         Run the SQL helper functions here.
@@ -315,7 +322,7 @@ class Node(object):
         self.output = ""
 
         # Briefly introduce the node with the name of the Node Type
-        self.append(str(order) + ". " + self.node_json["Node Type"])
+        self.append(str(order) + ". " + self.node_json["Node Type"] + " (#" + str(self.id) + ")")
         self.append()
 
         # Append the formula explanation
