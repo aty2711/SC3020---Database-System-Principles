@@ -419,10 +419,6 @@ class Node(object):
         result = retrieve_query(self.login_details, query_details, False)
         num_blocks = result[0][0]
 
-# SELECT pg_relation_size({rel}) / current_setting('block_size')::int AS total_blocks
-# FROM pg_class
-# WHERE relname = {rel};
-
         if show: 
             self.append("Number of blocks for relation '" + relation + "': " + str(num_blocks))
         return num_blocks
@@ -488,10 +484,6 @@ class Node(object):
         query_details.query = '''
         SELECT COUNT(DISTINCT {attr}) AS num_unique_values FROM {rel};
         '''.format(attr = attribute, rel = relation)
-
-# SELECT n_distinct
-# FROM pg_stats
-# WHERE tablename = 'relation_name' AND attname = 'attribute_name';
 
         # Execute and retrieve the values
         result = retrieve_query(self.login_details, query_details, False)
@@ -908,46 +900,3 @@ class GatherMergeNode(Node): # formula unsure
         total_cost += merge_cost
 
         return total_cost
-
-
-####################### CODE TO RUN ########################
-
-# sample_json = {"Relation": "relA", "Attribute": "attrA", "Total Cost": 20}
-# node = MyScanNode(json.dumps(sample_json))
-# node.explain()
-
-
-###################### testing ################################
-import json
-sample_qep = """
-{
-    "Node Type": "Seq Scan",
-    "Parent Relationship": "Inner",
-    "Parallel Aware": false,
-    "Async Capable": false,
-    "Relation Name": "nation",
-    "Alias": "nation",
-    "Startup Cost": 0.0,
-    "Total Cost": 12.12,
-    "Plan Rows": 1,
-    "Plan Width": 434,
-    "Filter": "(n_regionkey = 1)",
-    "Plans": [
-        {
-            "Node Type": "Seq Scan",
-            "Parent Relationship": "Inner",
-            "Parallel Aware": false,
-            "Async Capable": false,
-            "Relation Name": "nation",
-            "Alias": "nation",
-            "Startup Cost": 0.0,
-            "Total Cost": 12.12,
-            "Plan Rows": 1,
-            "Plan Width": 434,
-            "Filter": "(n_regionkey = 1)"
-        }
-    ]
-}
-
-"""
-# load_qep_explanations(json.loads(sample_qep))
