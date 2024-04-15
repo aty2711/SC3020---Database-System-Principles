@@ -5,7 +5,7 @@ import sys
 import pyqtgraph as pg
 import json
 
-from explain import QueryDetails, LoginDetails, retrieve_explain_query, load_qep_explanations
+from explain import QueryDetails, LoginDetails, retrieve_query, load_qep_explanations, initialize_tree
 
 class LoginWidget(object):
     def __init__(self, login_details):
@@ -94,7 +94,6 @@ class LoginWidget(object):
             "border-radius: 10px;\n"
             "font: 12px"
         )
-        # self.loginButton.setObjectName("loginButton")
 
         # Layout
         self.gridLayout = QtWidgets.QGridLayout(loginWidget)
@@ -123,6 +122,8 @@ class MainUI(QMainWindow):
         super().__init__()
         self.login_details = login_details
         self.db_list = db_list
+        self.tree_widget = None #  QTree instance
+        self.qep_tree = None # Tree instance
 
         self.setWindowTitle("SQL Query Executor")
         self.resize(1350, 882)
@@ -178,11 +179,10 @@ class MainUI(QMainWindow):
         right_layout = QVBoxLayout()
         right_layout.addWidget(QLabel("QEP File Tree:"))
         
-        self.qep_tree = QTreeWidget()
-        self.qep_tree.setHeaderLabels(["Node Type", "Total Cost"])
-        right_layout.addWidget(self.qep_tree)
+        self.tree_widget = QTreeWidget()
+        self.tree_widget.setHeaderLabels(["Node Type", "Total Cost"])
+        right_layout.addWidget(self.tree_widget)
      
-
         # Add right layout to a container widget and then to the main layout
         right_widget = QWidget()
         right_widget.setLayout(right_layout)
@@ -192,19 +192,23 @@ class MainUI(QMainWindow):
         self.execute_button.clicked.connect(lambda: self.execute_query(self.database_selector.currentText(), self.sql_input.toPlainText()))
 
     def execute_query(self, database_name, query):
-        self.qep_tree.clear()
+        self.tree_widget.clear()
         query_details = QueryDetails
         query_details.database = database_name
         query_details.query = query
-        qep = retrieve_explain_query(self.login_details, query_details)
-        self.query_output.setText(json.dumps(qep[0][0][0], indent=3))
-        self.populate_qep_tree(qep[0][0][0]['Plan'], None)
-         # Resize columns to fit content
-        self.qep_tree.setColumnWidth(0,200)
-        self.qep_tree.setColumnWidth(1,100)
+        qep = retrieve_query(self.login_details, query_details)
+        self.query_output.setText(json.dumps(qep[0][0][0], indent=4))
+
+        self.qep_tree = initialize_tree(qep[0][0][0]['Plan'], self.login_details, query_details)
+
+        self.populate_tree_widget(self.qep_tree)
+        
+        # Resize columns to fit content
+        self.tree_widget.setColumnWidth(0,200)
+        self.tree_widget.setColumnWidth(1,100)
 
         # Append explanations into output field
-        explanations = load_qep_explanations(qep[0][0][0]['Plan'])
+        explanations = load_qep_explanations(self.qep_tree)
         self.append_query_output(explanations)
         
     def append_query_output(self, textual_query):
@@ -212,25 +216,17 @@ class MainUI(QMainWindow):
         self.query_output.append(textual_query)
         self.query_output.append("----------------------------------------------")
 
+    def build_tree_recursive(self, node, parent_widget):
+        if node is not None:
+            tree_item = QTreeWidgetItem(parent_widget, [f"{node.id}. {node.node_json["Node Type"]}", str(node.node_json["Total Cost"])])
+            self.build_tree_recursive(node.left, tree_item)        
+            self.build_tree_recursive(node.right, tree_item)
 
-    
-    def populate_qep_tree(self, plan, parent_item):
-        node_type = plan.get("Node Type", "Unknown")
-        total_cost = plan.get("Total Cost", "Unknown")
-        plan_rows = plan.get("Plan Rows", "Unknown")
-        plan_width = plan.get("Plan Width", "Unknown")
-        extra_info = ", ".join(f"{k}: {v}" for k, v in plan.items() if k not in {"Node Type", "Total Cost", "Plan Rows", "Plan Width", "Plans"})
-
-        # Create a new tree item with this info
-        if parent_item is None:
-            tree_item = QTreeWidgetItem(self.qep_tree, [node_type, str(total_cost), str(plan_rows), str(plan_width), extra_info])
-        else:
-            tree_item = QTreeWidgetItem(parent_item, [node_type, str(total_cost), str(plan_rows), str(plan_width), extra_info])
-
-        # Recursively add child plans
-        for child_plan in plan.get("Plans", []):
-            self.populate_qep_tree(child_plan, tree_item)
-
+    def populate_tree_widget(self, tree):
+        root = tree.root
+        tree_item = QTreeWidgetItem(self.tree_widget, [f"{root.id}. {root.node_json["Node Type"]}", str(tree.root.node_json["Total Cost"])])
+        self.build_tree_recursive(tree.root.left, tree_item)
+        self.build_tree_recursive(tree.root.right, tree_item)
 
 class ErrorDialog(QtWidgets.QDialog):
     def __init__(self, message, parent=None):

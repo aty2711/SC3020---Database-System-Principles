@@ -211,6 +211,9 @@ class Node(object):
         # Dict data structure to pass to parent
         self.parent_dict = None
 
+        # Id for node for easy reference
+        self.id = None
+
     def manual_cost(self):
         """
         Run the SQL helper functions here.
