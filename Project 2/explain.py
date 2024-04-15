@@ -80,7 +80,7 @@ def get_database_names(login_details: LoginDetails) -> List[str]:
 def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, explain = True):
     with DatabaseConnector(login_details, querydetails.database) as cursor:
         if explain:
-            query = f"EXPLAIN (VERBOSE, FORMAT JSON) {str(querydetails.query)}"
+            query = f"EXPLAIN (ANALYZE, VERBOSE, FORMAT JSON) {str(querydetails.query)}"
         else:
             query = str(querydetails.query)
         
@@ -144,7 +144,7 @@ class Tree(object):
 
     def _build_tree_recursive(self, node_json, count=[1]):
         """
-        Helper function of Node.build_tree()
+        Helper function of self.Build_tree()
 
         Recursively build the binary tree from node data
 
@@ -254,6 +254,22 @@ class Tree(object):
                 return GatherNode(node_json, self.login_details, self.query_details)
             case "Gather Merge": 
                 return GatherMergeNode(node_json, self.login_details, self.query_details)
+            case "Sort":
+                return SortNode(node_json, self.login_details, self.query_details)
+            case "Incremental Sort":
+                return IncrementalSortNode(node_json, self.login_details, self.query_details)
+            case "Limit":
+                return LimitNode(node_json, self.login_details, self.query_details)
+            case "Materialize":
+                return MaterializeNode(node_json, self.login_details, self.query_details)
+            case "Memoize":
+                return MemoizeNode(node_json, self.login_details, self.query_details)
+            case "Group":
+                return GroupNode(node_json, self.login_details, self.query_details)
+            case "Aggregate":
+                return AggregateNode(node_json, self.login_details, self.query_details)
+            case "Unique":
+                return UniqueNode(node_json, self.login_details, self.query_details)
             case _: 
                 return Node(node_json, self.login_details, self.query_details)
 
@@ -927,3 +943,150 @@ class GatherMergeNode(Node): # formula unsure
         total_cost += merge_cost
 
         return total_cost
+
+
+class SortNodes(Node):
+    def extract_relation_name(self):
+        '''
+        Retrieve the name of the relation from node_json["Sort Key"]
+        '''
+
+        # Retrieve the value from node_json
+        sort_key = self.node_json["Sort Key"][0]
+
+        # Split the sort key string by dot (.) to separate the relation name
+        parts = sort_key.split('.')
+        if len(parts) > 1:
+            # Return the first part as the relation name
+            return parts[0]
+        else:
+            # If the sort key does not contain a dot, return None
+            return None
+
+
+class SortNode(SortNodes):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        #explain relation and attributes
+ 
+        if (self.node_json["Sort Method"] == "external merge"):
+            self.str_explain_formula = "Mergesort Formula : 3 * B(rel). Mergesort used when data does not fit in memory(work_mem).Plan width * T(R) > work_mem"
+            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per extracted tuple
+            '''
+ 
+        elif(self.node_json["Sort Method"] == "quicksort"):
+            self.str_explain_formula = "Quicksort Formula : B(rel). Default algorithm,Quicksort used when entire data fits into memory(work_mem) -- One pass.Plan width * T(R) < work_mem"
+            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per extracted tuple
+                '''
+        elif(self.node_json["Sort Method"] == "top-N heapsort"):
+            self.str_explain_formula = "Top-N heapsort Formula : B(rel) / 3. Top-N heapsort is used when only a limited amount of data is required, such as when theres LIMIT after order."
+            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per extracted tuple, as well as cost to maintain heap of the top  N items.
+                '''
+    
+    def manual_cost(self):
+        rel = super().extract_relation_name()
+        if (self.node_json["Sort Method"] == "external merge"):
+            return self.B(rel) * 3
+        
+        elif(self.node_json["Sort Method"] == "quicksort"):
+            return self.B(rel)
+        
+        elif(self.node_json["Sort Method"] == "top-N heapsort"):
+            #Not sure about topn cost
+            return self.B(rel)
+ 
+class IncrementalSortNode(SortNodes):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        #explain relation and attributes
+        self.str_explain_formula = "Formula : B(rel) - Estimated Sorted Blocks. Incremental Sort is used when input data is partially ordered"
+        self.str_explain_difference = '''Postgresql uses different calculations to calculate number of  groups with equal presorted keys. There are also overhead costs in detecting sort groups and additional costs for each 
+                                    input group. '''
+    
+    def manual_cost(self):
+        rel = super().extract_relation_name()
+        return self.B(rel)/3 
+        
+class LimitNode(Node):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        #explain relation and attributes
+        self.str_explain_formula = "Formula : B(rel) * "
+        self.str_explain_difference = '''Explain '''
+ 
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        return self.B(rel)
+ 
+class MaterializeNode(Node):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        #explain relation and attributes
+        self.str_explain_formula = "Maeterialize Formula : T(rel) * 2. Materialize used to store intermediate results temporarily to improve the efficiency"
+        self.str_explain_difference = '''PostgreSQL includes cpu operator costs per tuple to reflect bookkeeping overhead, and accounts if volume of data to materialize spills and exceed work_mem and needs to 
+                                         be written to disk(higher cost) '''
+ 
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        return self.T(rel) * 2
+ 
+
+class MemoizeNode(Node):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        #explain relation and attributes
+        self.str_explain_formula = "Memoize used to cache and reuse results of expensive operations when they are executed with the same parameters multiple times in a query."
+ 
+        self.str_explain_difference = '''Costs of a memoize node dependent also on nature of operations and frequency, cache hit rate and lookup times  '''
+ 
+    def manual_cost(self):
+        return 0
+        
+class GroupNode(Node):
+    
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = "Formula : T(rel) * Number of Group Columns. "
+        self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
+    
+ 
+    def manual_cost(self):
+        #test if can
+        rel = self.node_json["Relation Name"]
+        numGroupCol = len(self.node_json.get("Group Key", []))
+        return self.T(rel) * numGroupCol
+ 
+class AggregateNode(Node):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        
+        if (self.node_json["Strategy"] == "Sorted" or self.node_json["Strategy"] == "Mixed"):
+            self.str_explain_formula = "Formula : T(rel) * Number of groups.Aggregate used to compute summaries from sets of values like SUM,AVG. "
+            self.str_explain_difference = '''PostgreSQL has different aggregate strategies depending on the input.  '''
+ 
+        #assume T(rel) as cost
+        elif (self.node_json["Strategy"] == "Hased"):
+            self.str_explain_formula = "Formula : T(rel).Aggregate hash strategy used over all rows when there is no group by"
+            self.str_explain_difference = '''Aggregate Hash costs include computing hash value and retiving from hash table, and cost due to chance of tuple spilling.  '''
+        
+        #default, Agg strategy is plain
+        else:
+            self.str_explain_formula = "Formula : T(rel).Aggregate plain strategy used over all rows when there is no group by, no need for grouping before aggregation"
+            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
+        
+    def manual_cost(self):
+        rel = self.node_json["Relation Name"]
+        if (self.node_json["Strategy"] == "Sorted" or self.node_json["Strategy"] == "Mixed"):
+            numGroupCol = len(self.node_json.get("Group Key", []))
+            return self.T(rel) * numGroupCol
+        
+        else:
+            return self.T(rel)
+        
+class UniqueNode(Node):
+    def __init__(self, node_json, login_details, query_details):
+        super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = "Remove duplicates from sorted set"
+ 
+    def manual_cost(self):
+        return 0
