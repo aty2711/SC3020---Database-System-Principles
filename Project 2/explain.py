@@ -100,7 +100,7 @@ def load_qep_explanations(plan_json, login_details, query_details):
     tree.build_tree(plan_json)
 
     # Explain each node by DFS and return the output
-    return tree.dfs_explain_all(tree.root).strip()
+    return tree.explain_all_nodes(tree.root).strip()
 
 import json
 
@@ -110,9 +110,12 @@ class Tree(object):
 
     This tree is binary. If there is only one child, the child node will
     be assigned to the left child.
+
+    @param login_details: User-provided login details to the UI
+    @param query_details: Contains the user-selected database and user-input query
     """
 
-    def __init__(self, login_details, query_details):
+    def __init__(self, login_details: LoginDetails, query_details: QueryDetails):
         # Root node of the tree
         self.root = None
 
@@ -128,17 +131,32 @@ class Tree(object):
         self.order = 1
 
     def build_tree(self, node_json):
-        # Recursively build the binary tree from JSON data
-        # Data given to build_tree is the value of the key "Plan"
+        '''
+        Recursively build the binary tree from JSON data
+        Data given to build_tree is the value of the key "Plan"
 
+        @param node_json: The JSON / dictionary of details specific to the node
+        '''
+        
+        # Saves the root and begins recursively creating the tree
         self.root = self._build_tree_recursive(node_json)
 
     def _build_tree_recursive(self, node_json):
-         # Recursively build the binary tree from node data
+        '''
+        Helper function of Node.build_tree()
+
+        Recursively build the binary tree from node data
+
+        @param node_json: The JSON / dictionary of details specific to the node
+        @return: The instantiated node
+        '''
+
+        # Default case - Previous node is already a leaf node
         if not node_json:
             return None
 
-        node = self.create_node(node_json)
+        # Instantiate a Node subclass
+        node = self.instantiate_node(node_json)
             
         # Continue running this function only if there are child nodes
         if node is not None and "Plans" in node.node_json:
@@ -149,16 +167,25 @@ class Tree(object):
                 node.left = self._build_tree_recursive(plans[0])
                 node.right = self._build_tree_recursive(plans[1])
 
-            # node.node_json["Plans"] no longer needed, empty it
+            # node.node_json["Plans"] no longer needed, empty it to save storage
             node.node_json["Plans"] = {}
 
         return node
 
-    def dfs_explain_all(self, node):
-        # Function to perform depth-first traversal of the binary tree
+    def explain_all_nodes(self, node):
+        '''
+        Perform depth-first traversal of the query tree to obtain
+        the explanations for all of the nodes in the tree
+
+        @param node: Current node to explain.
+                     On first call of the function, node = root. 
+                     Otherwise, node is either node.left or node.right
+        @return: The output for the entire tree
+        '''
+
         if node is not None:
-            self.dfs_explain_all(node.left)
-            self.dfs_explain_all(node.right)
+            self.explain_all_nodes(node.left)
+            self.explain_all_nodes(node.right)
             
             # After calling explain() on both child nodes
             # Merge their parent_dict before processing current node
@@ -176,7 +203,15 @@ class Tree(object):
         return self.full_output
 
 
-    def create_node(self, node_json):
+    def instantiate_node(self, node_json):
+        '''
+        Checks what is the value of node_json["Node Type"]
+        
+        Then, instantiate a Node subclass based on the node type
+
+        @param node_json: The JSON / dictionary of details specific to the node
+        @return: An instance of the selected subclass of Node
+        '''
         match node_json["Node Type"]:
             case "Seq Scan": 
                 return SeqScanNode(node_json, self.login_details, self.query_details)
@@ -192,6 +227,10 @@ class Node(object):
     and functions with their own implementations:
     - __init__(self) to replace str_explain_formula and str_explain_difference
     - manual_cost(node_json)
+
+    @param node_json: The JSON / dictionary of details specific to the node
+    @param login_details: User-provided login details to the UI
+    @param query_details: Contains the user-selected database and user-input query
     """
 
     def __init__(self, node_json, login_details, query_details):
@@ -226,11 +265,11 @@ class Node(object):
         Each SQL helper function will also append a line to the output
         This method will return the total manually calculated cost.
 
-        @returns: An integer for the manually calculated total cost
+        @return: An integer for the manually calculated total cost
         """
         return 0
 
-    def explain(self, order = 0):
+    def explain(self, order: int = 0):
         """
         Prepares the output for the particular node to be printed by the interface.
         Also handles clean-up after explain() is executed successfully
@@ -296,29 +335,37 @@ class Node(object):
             for key, value in self.right.parent_dict.items():
                 self.node_json["Right " + key] = value
 
-    def append(self, tgt_str = "", src_str = "output", eol = '\n'):
+    def append(self, tgt: str = "", src: str = "output", eol: str = '\n'):
         '''
         Append a string to the end of the selected string.
-        If no src_str is specified, then append to Node.output
-        If no tgt_str is specified, then the behaviour is similar to print(),
+        If no src is specified, then append to Node.output
+        If no tgt is specified, then the behaviour is similar to print(),
         which is to add an empty line to the output
         If no eol is specified, a newline character will be added after each string.
+
+        @param tgt: The string to append to at the end of the source string
+        @param src: Specifies which string to append the target string to.
+                    If append to self.str_explain_formula, src = "formula"
+                    If append to self.str_explain_difference, src = "difference"
+                    Otherwise, append to self.output
+        @param eol: End-of-line. Append additionally this character or string to the end of the target string
         '''
-        match src_str:
+
+        match src:
             case "formula":
-                self.str_explain_formula = self.str_explain_formula + str(tgt_str) + eol
+                self.str_explain_formula = self.str_explain_formula + tgt + eol
             case "difference":
-                self.str_explain_difference = self.str_explain_difference + str(tgt_str) + eol
+                self.str_explain_difference = self.str_explain_difference + tgt + eol
             case _:
-                self.output = self.output + str(tgt_str) + eol
+                self.output = self.output + tgt + eol
 
     ######### Functions that Re-queries the Database #########
 
-    def B(self, relation, show = True):
+    def B(self, relation: str, show: bool = True):
         """
         Return number of blocks for the specified relation
 
-        @type show : boolean
+        @param relation : The relation to query
         @param show : Whether to print out the results of the query
         """
 
@@ -341,11 +388,11 @@ class Node(object):
             self.append("Number of blocks for relation '" + relation + "': " + str(num_blocks))
         return num_blocks
 
-    def T(self, relation, show = True):
+    def T(self, relation: str, show: bool = True):
         """
         Return number of tuples for the specified relation
 
-        @type show : boolean
+        @param relation : The relation to query
         @param show : Whether to print out the results of the query
         """
 
@@ -364,11 +411,10 @@ class Node(object):
             self.append("Number of tuples for relation '" + relation + "': " + str(num_tuples))
         return num_tuples
 
-    def M(self, show = True):
+    def M(self, show: bool = True):
         """
         Return buffer size allocated to DBMS in memory
 
-        @type show : boolean
         @param show : Whether to print out the results of the query
         """
 
@@ -387,12 +433,13 @@ class Node(object):
             self.append("Buffer size: " + str(buffer_size))
         return buffer_size
 
-    def V(self, relation, attribute, show = True):
+    def V(self, relation: str, attribute: str, show: bool = True):
         """
         Return number of unique values for the attribute in
         the provided relation
 
-        @type show : boolean
+        @param relation : The relation to query
+        @param attribute : The attribute of the relation to query
         @param show : Whether to print out the results of the query
         """
 
@@ -426,7 +473,10 @@ class Node(object):
 #################### NODE SUBCLASSES ######################
 
 
-class MyScanNode(Node):
+class MyNode(Node):
+    '''
+    Testing node. Will print all of B(), T(), V() and M
+    '''
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "Formula: B(rel) + T(rel) + V(rel, attr) + M"
