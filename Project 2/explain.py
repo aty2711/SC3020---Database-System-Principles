@@ -382,18 +382,27 @@ class Node(object):
         Builds a dict of specific values to pass to the parent Node for their
         calculations. Only includes necessary attributes.
         """
-        attributes = [
-            "Node Type",
-            "block_size",
-            "tuple_size",
-            "manual_cost",
-            "postgre_cost",
-        ]
-        return {
-            attr: self.node_json[attr] for attr in attributes if attr in self.node_json
+        parent_dict = {
+            # Node type of current node
+            "Node Type": "Placeholder",
+
+            # Estimated number of blocks for the intermediate relation
+            # resulting from this node
+            "block_size": 0,
+
+            # Estimated number of tuples for the intermediate relation
+            # resulting from this node
+            "tuple_size": 0,
+
+            # Manually calculated cost of executing this node
+            "manual_cost": 0,
+
+            # Given Total Cost by Postgres from executing this node
+            "postgre_cost": 0
         }
 
-        # return self.node_json.copy()
+        return parent_dict
+        # attr: self.node_json[attr] for attr in attributes if attr in self.node_json
 
     def merge_dict(self):
         """
@@ -551,34 +560,50 @@ class MyNode(Node):
         rel = "nation"
         attr = "n_name"
         return self.B(rel) + self.T(rel) + self.V(rel, attr) + self.M()
+    
+    def build_parent_dict(self):
+        rel = "nation"
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": 10,
+            "postgre_cost": self.node_json["Total Cost"]
+        }
+
+        return parent_dict
 
 class ScanNodes(Node):
     '''
     Helper class that contains utility functions for most scan-related nodes
     '''
-    def cardinality(self):
+    def cardinality(self, is_tuple):
         '''
-        Estimate the size of the tuple resulting from this query node
+        Estimate number of filtered tuple resulting from this query node
+
+        @param is_tuple: True if returning number of tuples. False if returning number of blocks
         '''
         rel = self.node_json["Relation Name"]
         attr = self.retrieve_attribute_from_filter(self.node_json["Filter"])
         num_blocks = self.B(rel, False)
+        num_tuples = self.T(rel, False)
         num_unique = self.V(rel, attr, False)
         
         # Three different cases
         if "Filter" not in self.node_json:
             # Case 1: Retrieve entire table. Selectivity = 1
-            return num_blocks
+            return num_tuples if is_tuple else num_blocks
 
         elif ">" in self.node_json["Filter"] or "<" in self.node_json["Filter"]:
             # Case 2: Retrieve a range of records. Selectivity = 1/3
-            return num_blocks / 3
+            return num_tuples / 3 if is_tuple else num_blocks / 3
 
         else:
             # Case 3: Retrieve one exact record. Selectivity = V(R, a)
             if num_unique == 0:
                 return 0
-            return num_blocks / num_unique  
+            return num_tuples / num_unique if is_tuple else num_blocks / num_unique
 
     def retrieve_attribute_from_filter(self):
         '''
@@ -604,6 +629,17 @@ class ScanNodes(Node):
         attr = filter[1:index].strip()
 
         return attr
+    
+    def build_parent_dict(self):
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.cardinality(False),
+            "tuple_size": self.cardinality(True),
+            "manual_cost": 0,
+            "postgre_cost": self.node_json["Total Cost"]
+        }
+
+        return parent_dict
 
 
 class SeqScanNode(ScanNodes):
@@ -624,6 +660,16 @@ class SeqScanNode(ScanNodes):
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
         return self.B(rel)
+    
+    def build_parent_dict(self):
+        # All other values are unchanged
+        parent_dict = super().build_parent_dict()
+
+        # Except for manual_cost
+        rel = self.node_json["Relation Name"]
+        parent_dict["manual_cost"] = self.B(rel, False)
+
+        return parent_dict
 
 
 class IndexScanNode(ScanNodes):
@@ -647,6 +693,18 @@ class IndexScanNode(ScanNodes):
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_filter()
         return self.T(rel) / self.V(rel, attr)
+    
+    def build_parent_dict(self):
+        # All other values are unchanged
+        parent_dict = super().build_parent_dict()
+
+        # Except for manual_cost
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        parent_dict["manual_cost"] = self.T(rel, False) / self.V(rel, attr, False)
+
+        return parent_dict
+
 
 class IndexOnlyScanNode(ScanNodes):
     def __init__(self, node_json, login_details, query_details):
@@ -669,6 +727,17 @@ class IndexOnlyScanNode(ScanNodes):
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_filter()
         return self.T(rel) / self.V(rel, attr)
+    
+    def build_parent_dict(self):
+        # All other values are unchanged
+        parent_dict = super().build_parent_dict()
+
+        # Except for manual_cost
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        parent_dict["manual_cost"] = self.T(rel, False) / self.V(rel, attr, False)
+
+        return parent_dict
 
 
 class BitmapIndexScanNode(Node):
@@ -682,6 +751,20 @@ class BitmapIndexScanNode(Node):
 
     def manual_cost(self):
         return 0
+    
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": 0,
+            "postgre_cost": self.node_json["Total Cost"]
+        }
+
+        return parent_dict
+
 
 class BitmapHeapScanNode(ScanNodes):
     def __init__(self, node_json, login_details, query_details):
@@ -703,6 +786,17 @@ class BitmapHeapScanNode(ScanNodes):
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_filter()
         return self.T(rel) / self.V(rel, attr)
+    
+    def build_parent_dict(self):
+        # All other values are unchanged
+        parent_dict = super().build_parent_dict()
+
+        # Except for manual_cost
+        rel = self.node_json["Relation Name"]
+        attr = super().retrieve_attribute_from_filter()
+        parent_dict["manual_cost"] = self.T(rel, False) / self.V(rel, attr, False)
+
+        return parent_dict
 
 
 class BitmapAndNode(Node):
@@ -713,6 +807,20 @@ class BitmapAndNode(Node):
 
     def manual_cost(self):
         return 0
+    
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+
+        # Treat this as an intersect operator unless there is more time
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": min(self.node_json["Left block_size"], self.node_json["Right block_size"]),
+            "tuple_size": min(self.node_json["Left tuple_size"], self.node_json["Right tuple_size"]),
+            "manual_cost": 0,
+            "postgre_cost": self.node_json["Total Cost"]
+        }
+
+        return parent_dict
 
 
 class BitmapOrNode(Node):
@@ -724,6 +832,20 @@ class BitmapOrNode(Node):
 
     def manual_cost(self):
         return 0
+    
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+
+        # Treat this as a union operator unless there is more time
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.node_json["Left block_size"] + self.node_json["Right block_size"],
+            "tuple_size": self.node_json["Left tuple_size"] + self.node_json["Right tuple_size"],
+            "manual_cost": 0,
+            "postgre_cost": self.node_json["Total Cost"]
+        }
+
+        return parent_dict
 
 
 class CTEScanNode(SeqScanNode):
