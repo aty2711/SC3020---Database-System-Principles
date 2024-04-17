@@ -140,7 +140,7 @@ class Tree(object):
         '''
 
         # Saves the root and begins recursively creating the tree
-        self.root = self._build_tree_recursive(node_json)
+        self.root = self._build_tree_recursive(node_json, count=[1])
 
     def _build_tree_recursive(self, node_json, count=[1]):
         """
@@ -584,31 +584,66 @@ class ScanNodes(Node):
 
         @param is_tuple: True if returning number of tuples. False if returning number of blocks
         '''
+
+        # Preliminary calculations
         rel = self.node_json["Relation Name"]
-        attr = self.retrieve_attribute_from_filter(self.node_json["Filter"])
         num_blocks = self.B(rel, False)
         num_tuples = self.T(rel, False)
-        num_unique = self.V(rel, attr, False)
-        
+
+        # Count number of conditions in the filter
+        count_cond = self.count_conditions()
+
         # Three different cases
-        if "Filter" not in self.node_json:
+        if "Filter" or "Index Cond" not in self.node_json:
             # Case 1: Retrieve entire table. Selectivity = 1
             return num_tuples if is_tuple else num_blocks
 
-        elif ">" in self.node_json["Filter"] or "<" in self.node_json["Filter"]:
-            # Case 2: Retrieve a range of records. Selectivity = 1/3
-            return num_tuples / 3 if is_tuple else num_blocks / 3
+        # Calculate selectivity for each condition
+        num_return = num_tuples if is_tuple else num_blocks
+        for i in range(count_cond):
+            attr = self.retrieve_attribute_from_condition(i)
+            op = self.retrieve_operator_from_condition(i)
+            num_unique = self.V(rel, attr, False)
 
+            if ">" or "<" in op:
+                # Case 2: Retrieve a range of records. Selectivity = 1/3
+                selectivity = 1/3
+
+            else:
+                # Case 3: Retrieve one exact record. Selectivity = V(R, a)
+                if num_unique == 0:
+                    selectivity = 0
+                selectivity = 1/num_unique
+
+            # Multiply selectivity into num_return
+            num_return *= selectivity
+
+    def count_conditions(self):
+        '''
+        Determine the number of conditions embedded in the filter
+
+        @return An integer specifying the number of conditions. If "Filter" is not present, return 0
+        '''
+
+        # Retrieve the filter from node_json
+        if "Filter" in self.node_json:
+            filter = self.node_json["Filter"]
+        elif "Index Cond" in self.node_json:
+            filter = self.node_json["Index Cond"]
         else:
-            # Case 3: Retrieve one exact record. Selectivity = V(R, a)
-            if num_unique == 0:
-                return 0
-            return num_tuples / num_unique if is_tuple else num_blocks / num_unique
+            return 0
+        
+        # Count the occurrences of 'AND' to determine the number of conditions
+        return filter.count('AND') + 1
 
-    def retrieve_attribute_from_filter(self):
+    def retrieve_attribute_from_condition(self, cond_index = 0):
         '''
         Pass in the value from node_json["Filter"] or node_json["Index Cond"] and return the attribute
-        Example filter = "(o_custkey < 1000000)"
+        Example filter = "(o_custkey < 1000000)" returns "o_custkey"
+
+        @param cond_index: Condition index. For filters with more than one condition,
+                           specify which condition to extract the attribute from.
+                           Condition index starts from 0
         '''
 
         # Retrieve the filter from node_json
@@ -619,16 +654,54 @@ class ScanNodes(Node):
         else:
             return
 
-        # Define the comparison operators
-        comparison_operators = ["<", ">", "="]
+        # Find the condition within parentheses using split
+        conditions = filter.split('AND')
 
-        # Find the index of the first appearance of any comparison operator
-        index = min(filter.find(op) for op in comparison_operators if op in filter)
+        # Extract the specified condition and remove the brackets
+        specified_condition = conditions[cond_index].strip().strip('()')
+
+        # Find the index of the comparison operator
+        comparison_operators = ['<', '>', '=']
+        index = min(specified_condition.find(op) for op in comparison_operators if op in specified_condition)
 
         # Extract the text before the comparison operator
-        attr = filter[1:index].strip()
+        text_before_operator = specified_condition[:index].strip()
+
+        # Extract the attribute name from the text before the comparison operator
+        attr = text_before_operator.split('.')[-1]
 
         return attr
+    
+    def retrieve_operator_from_condition(self, cond_index = 0):
+        '''
+        Pass in the value from node_json["Filter"] or node_json["Index Cond"] and return the attribute
+        Example filter = "(o_custkey < 1000000)" returns '<'
+
+        @param cond_index: Condition index. For filters with more than one condition,
+                           specify which condition to extract the attribute from.
+                           Condition index starts from 0
+        '''
+
+        # Find the condition within parentheses using split
+        conditions = filter.split('AND')
+        
+        # Extract the specified condition and strip opening and closing brackets
+        specified_condition = conditions[cond_index - 1].strip().strip('()')
+        
+        # Find the index of the comparison operator
+        comparison_operators = ['<', '>', '=', '<=', '>=']
+        index = min(specified_condition.find(op) for op in comparison_operators if op in specified_condition)
+        
+        # Extract the comparison operator
+        operator = specified_condition[index:].split()[0]
+        
+        # Map <= and >= to < and >
+        if operator == '<=':
+            operator = '<'
+        elif operator == '>=':
+            operator = '>'
+        
+        return operator
     
     def build_parent_dict(self):
         parent_dict = {
@@ -680,7 +753,7 @@ class IndexScanNode(ScanNodes):
 
         # Explain the relation, attribute
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
         self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
 
@@ -691,7 +764,7 @@ class IndexScanNode(ScanNodes):
 
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         return self.T(rel) / self.V(rel, attr)
     
     def build_parent_dict(self):
@@ -700,7 +773,7 @@ class IndexScanNode(ScanNodes):
 
         # Except for manual_cost
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         parent_dict["manual_cost"] = self.T(rel, False) / self.V(rel, attr, False)
 
         return parent_dict
@@ -714,7 +787,7 @@ class IndexOnlyScanNode(ScanNodes):
 
         # Explain the relation, attribute 
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
         self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
 
@@ -725,7 +798,7 @@ class IndexOnlyScanNode(ScanNodes):
 
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         return self.T(rel) / self.V(rel, attr)
     
     def build_parent_dict(self):
@@ -734,7 +807,7 @@ class IndexOnlyScanNode(ScanNodes):
 
         # Except for manual_cost
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         parent_dict["manual_cost"] = self.T(rel, False) / self.V(rel, attr, False)
 
         return parent_dict
@@ -774,7 +847,7 @@ class BitmapHeapScanNode(ScanNodes):
 
         # Explain the relation, attribute 
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         self.append(src = "formula", tgt = "Accessing the heap through index on attribute '" + attr + "' of relation '" + rel + "'")
         self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
 
@@ -784,7 +857,7 @@ class BitmapHeapScanNode(ScanNodes):
 
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         return self.T(rel) / self.V(rel, attr)
     
     def build_parent_dict(self):
@@ -793,7 +866,7 @@ class BitmapHeapScanNode(ScanNodes):
 
         # Except for manual_cost
         rel = self.node_json["Relation Name"]
-        attr = super().retrieve_attribute_from_filter()
+        attr = super().retrieve_attribute_from_condition()
         parent_dict["manual_cost"] = self.T(rel, False) / self.V(rel, attr, False)
 
         return parent_dict
@@ -1053,40 +1126,44 @@ class GatherMergeNode(Node): # formula unsure
         """
 
     def manual_cost(self):
-        total_cost = (
-            self.node_json["Left manual_cost"] + self.node_json["Right manual_cost"]
-        )
+        total_cost = self.node_json["Left manual_cost"]
+        if self.right is not None:
+            total_cost += self.node_json["Right manual_cost"]
 
         # Merge cost might be proportional to the total number of rows across all children
         # Assuming a linear merge cost model here
-        merge_cost = (
-            self.node_json["Left tuple_size"] + self.node_json["Right tuple_size"]
-        )
+        merge_cost = self.node_json["Left tuple_size"]
+        if self.right is not None:
+            merge_cost += self.node_json["Right tuple_size"]
+
         total_cost += merge_cost
 
         return total_cost
 
 
-class SortNodes(Node):
+class SortGroupNodes(Node):
     def extract_relation_name(self):
         '''
-        Retrieve the name of the relation from node_json["Sort Key"]
+        Retrieve the name of the relation from node_json["Sort Key"] or node_json["Group Key"]
         '''
 
         # Retrieve the value from node_json
-        sort_key = self.node_json["Sort Key"][0]
+        if "Sort Key" in self.node_json:
+            key = self.node_json["Sort Key"][0]
+        elif "Group Key" in self.node_json:
+            key = self.node_json["Group Key"][0]
 
-        # Split the sort key string by dot (.) to separate the relation name
-        parts = sort_key.split('.')
+        # Split the key string by dot (.) to separate the relation name
+        parts = key.split('.')
         if len(parts) > 1:
             # Return the first part as the relation name
             return parts[0]
         else:
-            # If the sort key does not contain a dot, return None
+            # If the key does not contain a dot, return None
             return None
 
 
-class SortNode(SortNodes):
+class SortNode(SortGroupNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = ""
@@ -1123,7 +1200,7 @@ class SortNode(SortNodes):
             return self.B(rel) / 3
 
 
-class IncrementalSortNode(SortNodes):
+class IncrementalSortNode(SortGroupNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = ""
@@ -1195,7 +1272,7 @@ class GroupNode(Node):
         numGroupCol = len(self.node_json.get("Group Key", []))
         return self.T(rel) * numGroupCol
  
-class AggregateNode(Node):
+class AggregateNode(SortGroupNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
         
@@ -1204,7 +1281,7 @@ class AggregateNode(Node):
             self.str_explain_difference = '''PostgreSQL has different aggregate strategies depending on the input.  '''
  
         #assume T(rel) as cost
-        elif (self.node_json["Strategy"] == "Hased"):
+        elif (self.node_json["Strategy"] == "Hashed"):
             self.str_explain_formula = "Formula : T(rel). Aggregate hash strategy used over all rows when there is no group by"
             self.str_explain_difference = '''Aggregate Hash costs include computing hash value and retiving from hash table, and cost due to chance of tuple spilling.  '''
         
@@ -1214,7 +1291,7 @@ class AggregateNode(Node):
             self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
         
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
+        rel = super().extract_relation_name()
         if (self.node_json["Strategy"] == "Sorted" or self.node_json["Strategy"] == "Mixed"):
             numGroupCol = len(self.node_json.get("Group Key", []))
             return self.T(rel) * numGroupCol
