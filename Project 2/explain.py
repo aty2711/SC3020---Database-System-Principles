@@ -197,6 +197,9 @@ class Tree(object):
             # Merge their parent_dict before processing current node
             node.merge_dict()
 
+            # Define any explanations here after info from children nodes are received
+            node.define_explanations()
+
             # Append the explanation of the node to the full string
             # And add separators to distinguish between different nodes
             self.full_output = self.full_output + node.explain(self.order) + "\n"
@@ -294,12 +297,6 @@ class Node(object):
         self.login_details = login_details
         self.query_details = query_details
 
-        # Given formula or how formula is derived
-        self.str_explain_formula = "str_explain_formula"
-
-        # Brief explanation on the difference between formula and system calculations
-        self.str_explain_difference = "str_explain_difference"
-
         # The JSON of this particular node
         self.node_json = node_json
 
@@ -317,6 +314,13 @@ class Node(object):
 
         # Id for node for easy reference
         self.id = None
+
+    def define_explanations(self):
+        # Given formula or how formula is derived
+        self.str_explain_formula = "str_explain_formula"
+
+        # Brief explanation on the difference between formula and system calculations
+        self.str_explain_difference = "str_explain_difference"
 
     def manual_cost(self):
         """
@@ -551,8 +555,7 @@ class MyNode(Node):
     '''
     Testing node. Will print all of B(), T(), V() and M
     '''
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = "Formula: B(rel) + T(rel) + V(rel, attr) + M"
         self.str_explain_difference = "Some explanation for difference"
 
@@ -716,8 +719,7 @@ class ScanNodes(Node):
 
 
 class SeqScanNode(ScanNodes):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
@@ -746,8 +748,7 @@ class SeqScanNode(ScanNodes):
 
 
 class IndexScanNode(ScanNodes):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
@@ -780,8 +781,7 @@ class IndexScanNode(ScanNodes):
 
 
 class IndexOnlyScanNode(ScanNodes):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
@@ -814,8 +814,7 @@ class IndexOnlyScanNode(ScanNodes):
 
 
 class BitmapIndexScanNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
@@ -840,8 +839,7 @@ class BitmapIndexScanNode(Node):
 
 
 class BitmapHeapScanNode(ScanNodes):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
@@ -873,8 +871,7 @@ class BitmapHeapScanNode(ScanNodes):
 
 
 class BitmapAndNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = "AND operation on bit arrays are negligible"
         self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation'''
 
@@ -897,8 +894,7 @@ class BitmapAndNode(Node):
 
 
 class BitmapOrNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = "OR operation on bit arrays are negligible"
         self.str_explain_difference = """PostgreSQL factors in overhead of bitmap access into cost calculation
         """
@@ -935,9 +931,7 @@ class SubqueryScanNode(SeqScanNode):
     pass
 
 class AppendNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
-
+    def define_explanations(self):
         # Explain the relation, attribute
         self.str_explain_formula = """Combine the results of the child operations.
         Cost Formula: SIGMA(Cost(Child))
@@ -957,9 +951,7 @@ class AppendNode(Node):
 
 
 class MergeAppendNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
-
+    def define_explanations(self):
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the sorted results of the child operations, in a way that preserves their sort order.
         Cost Formula: SIGMA(Cost(Child)) + Merge_Cost
@@ -985,8 +977,7 @@ class MergeAppendNode(Node):
 
 
 class NestedLoopJoinNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
 
         rel_R = self.node_json["Left Node Type"]
         rel_S = self.node_json["Right Node Type"]
@@ -1011,8 +1002,7 @@ class NestedLoopJoinNode(Node):
 
 
 class MergeJoinNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
 
         rel_R = self.node_json["Left Node Type"]
         rel_S = self.node_json["Right Node Type"]
@@ -1037,8 +1027,7 @@ class MergeJoinNode(Node):
 
 
 class HashNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
 
         # Explain the relation, attribute
         rel = self.node_json["Left Node Type"]
@@ -1066,8 +1055,7 @@ class HashNode(Node):
 
 
 class HashJoinNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
 
         rel_R = self.node_json["Left Node Type"]
         rel_S = self.node_json["Right Node Type"]
@@ -1093,8 +1081,7 @@ class HashJoinNode(Node):
 
 
 class GatherNode(Node): # formula unsure
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers.
@@ -1113,8 +1100,7 @@ class GatherNode(Node): # formula unsure
 
 
 class GatherMergeNode(Node): # formula unsure
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
 
         # Explain the relation, attribute
         self.str_explain_formula = """Combines the output of child nodes, which are executed by parallel workers. Gather Merge consumes sorted data, and preserves this sort order.
@@ -1164,8 +1150,7 @@ class SortGroupNodes(Node):
 
 
 class SortNode(SortGroupNodes):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
         #explain relation and attributes
@@ -1201,8 +1186,7 @@ class SortNode(SortGroupNodes):
 
 
 class IncrementalSortNode(SortGroupNodes):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
@@ -1218,8 +1202,7 @@ class IncrementalSortNode(SortGroupNodes):
 
 
 class LimitNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         #explain relation and attributes
         self.str_explain_formula = "Formula : B(rel) * "
         self.str_explain_difference = '''Explain '''
@@ -1230,8 +1213,7 @@ class LimitNode(Node):
 
 
 class MaterializeNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
@@ -1247,8 +1229,7 @@ class MaterializeNode(Node):
  
 
 class MemoizeNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = ""
 
         #explain relation and attributes
@@ -1261,8 +1242,7 @@ class MemoizeNode(Node):
 
 
 class GroupNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = "Formula : T(rel) * Number of Group Columns. "
         self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
  
@@ -1273,8 +1253,7 @@ class GroupNode(Node):
         return self.T(rel) * numGroupCol
  
 class AggregateNode(SortGroupNodes):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         
         if (self.node_json["Strategy"] == "Sorted" or self.node_json["Strategy"] == "Mixed"):
             self.str_explain_formula = "Formula : T(rel) * Number of groups. Aggregate used to compute summaries from sets of values like SUM,AVG. "
@@ -1300,8 +1279,7 @@ class AggregateNode(SortGroupNodes):
             return self.T(rel)
         
 class UniqueNode(Node):
-    def __init__(self, node_json, login_details, query_details):
-        super().__init__(node_json, login_details, query_details)
+    def define_explanations(self):
         self.str_explain_formula = "Remove duplicates from sorted set"
  
     def manual_cost(self):
