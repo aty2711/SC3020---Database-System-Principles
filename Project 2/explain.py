@@ -1089,21 +1089,26 @@ class SortNodes(Node):
 class SortNode(SortNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
         #explain relation and attributes
  
         if (self.node_json["Sort Method"] == "external merge"):
-            self.str_explain_formula = "Mergesort Formula : 3 * B(rel). Mergesort used when data does not fit in memory(work_mem).Plan width * T(R) > work_mem"
-            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per extracted tuple
-            '''
+            self.append(src = "formula", tgt = "Mergesort Formula : 3 * B(rel)")
+            self.append(src = "formula", tgt = "Mergesort is used when data does not fit in memory(work_mem)")
+            self.append(src = "formula", tgt = "Plan width * T(R) > work_mem")
+            self.append(src = "difference", tgt = "PostgreSQL includes default cost per comparison costs and overhead per extracted tuple")
  
         elif(self.node_json["Sort Method"] == "quicksort"):
-            self.str_explain_formula = "Quicksort Formula : B(rel). Default algorithm,Quicksort used when entire data fits into memory(work_mem) -- One pass.Plan width * T(R) < work_mem"
-            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per extracted tuple
-                '''
+            self.append(src = "formula", tgt = "Quicksort Formula : B(rel). This is the default algorithm")
+            self.append(src = "formula", tgt = "Quicksort is used when entire data fits into memory(work_mem) -- One pass.")
+            self.append(src = "formula", tgt = "Plan width * T(R) < work_mem")
+            self.append(src = "difference", tgt = "PostgreSQL includes default cost per comparison costs and overhead per extracted tuple")
+
         elif(self.node_json["Sort Method"] == "top-N heapsort"):
-            self.str_explain_formula = "Top-N heapsort Formula : B(rel) / 3. Top-N heapsort is used when only a limited amount of data is required, such as when theres LIMIT after order."
-            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per extracted tuple, as well as cost to maintain heap of the top  N items.
-                '''
+            self.append(src = "formula", tgt = "Top-N heapsort Formula : B(rel) / 3.")
+            self.append(src = "formula", tgt = "Top-N heapsort is used when only a limited amount of data is required, such as when theres LIMIT after order.")
+            self.append(src = "difference", tgt = "PostgreSQL includes default cost per comparison costs and overhead per extracted tuple, as well as cost to maintain heap of the top N items.")
     
     def manual_cost(self):
         rel = super().extract_relation_name()
@@ -1115,20 +1120,26 @@ class SortNode(SortNodes):
         
         elif(self.node_json["Sort Method"] == "top-N heapsort"):
             #Not sure about topn cost
-            return self.B(rel)
- 
+            return self.B(rel) / 3
+
+
 class IncrementalSortNode(SortNodes):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
+
         #explain relation and attributes
-        self.str_explain_formula = "Formula : B(rel) - Estimated Sorted Blocks. Incremental Sort is used when input data is partially ordered"
-        self.str_explain_difference = '''Postgresql uses different calculations to calculate number of  groups with equal presorted keys. There are also overhead costs in detecting sort groups and additional costs for each 
-                                    input group. '''
+        self.append(src = "formula", tgt = "Formula : B(rel) - Estimated Sorted Blocks.")
+        self.append(src = "formula", tgt = "Incremental Sort is used when input data is partially ordered")
+        self.append(src = "difference", tgt = "Postgresql uses different calculations to calculate number of groups with equal presorted keys.")
+        self.append(src = "difference", tgt = "There are also overhead costs in detecting sort groups and additional costs for each input group.")
     
     def manual_cost(self):
         rel = super().extract_relation_name()
         return self.B(rel)/3 
-        
+
+
 class LimitNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
@@ -1139,14 +1150,19 @@ class LimitNode(Node):
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
         return self.B(rel)
- 
+
+
 class MaterializeNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
+
         #explain relation and attributes
-        self.str_explain_formula = "Maeterialize Formula : T(rel) * 2. Materialize used to store intermediate results temporarily to improve the efficiency"
-        self.str_explain_difference = '''PostgreSQL includes cpu operator costs per tuple to reflect bookkeeping overhead, and accounts if volume of data to materialize spills and exceed work_mem and needs to 
-                                         be written to disk(higher cost) '''
+        self.append(src = "formula", tgt = "Materialize Formula : T(rel) * 2")
+        self.append(src = "formula", tgt = "Materialize is used to store intermediate results temporarily to improve efficiency")
+        self.append(src = "difference", tgt = "PostgreSQL includes cpu operator costs per tuple to reflect bookkeeping overhead.")
+        self.append(src = "difference", tgt = "PostgreSQL also accounts for when volume of data to materialize exceeds work_mem and needs to be written to disk(higher cost)")
  
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
@@ -1156,21 +1172,22 @@ class MaterializeNode(Node):
 class MemoizeNode(Node):
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
+        self.str_explain_formula = ""
+
         #explain relation and attributes
-        self.str_explain_formula = "Memoize used to cache and reuse results of expensive operations when they are executed with the same parameters multiple times in a query."
- 
+        self.append(src = "formula", tgt = "Memoize used to cache and reuse results of expensive operations when they are executed with the same parameters multiple times in a query.")
+        self.append(src = "formula", tgt = "Since the previous query used it, there is no cost involved in fetching it from memory again.")
         self.str_explain_difference = '''Costs of a memoize node dependent also on nature of operations and frequency, cache hit rate and lookup times  '''
  
     def manual_cost(self):
         return 0
-        
+
+
 class GroupNode(Node):
-    
     def __init__(self, node_json, login_details, query_details):
         super().__init__(node_json, login_details, query_details)
         self.str_explain_formula = "Formula : T(rel) * Number of Group Columns. "
         self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
-    
  
     def manual_cost(self):
         #test if can
@@ -1183,17 +1200,17 @@ class AggregateNode(Node):
         super().__init__(node_json, login_details, query_details)
         
         if (self.node_json["Strategy"] == "Sorted" or self.node_json["Strategy"] == "Mixed"):
-            self.str_explain_formula = "Formula : T(rel) * Number of groups.Aggregate used to compute summaries from sets of values like SUM,AVG. "
+            self.str_explain_formula = "Formula : T(rel) * Number of groups. Aggregate used to compute summaries from sets of values like SUM,AVG. "
             self.str_explain_difference = '''PostgreSQL has different aggregate strategies depending on the input.  '''
  
         #assume T(rel) as cost
         elif (self.node_json["Strategy"] == "Hased"):
-            self.str_explain_formula = "Formula : T(rel).Aggregate hash strategy used over all rows when there is no group by"
+            self.str_explain_formula = "Formula : T(rel). Aggregate hash strategy used over all rows when there is no group by"
             self.str_explain_difference = '''Aggregate Hash costs include computing hash value and retiving from hash table, and cost due to chance of tuple spilling.  '''
         
         #default, Agg strategy is plain
         else:
-            self.str_explain_formula = "Formula : T(rel).Aggregate plain strategy used over all rows when there is no group by, no need for grouping before aggregation"
+            self.str_explain_formula = "Formula : T(rel). Aggregate plain strategy used over all rows when there is no group by, no need for grouping before aggregation"
             self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
         
     def manual_cost(self):
