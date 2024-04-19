@@ -77,13 +77,15 @@ def get_database_names(login_details: LoginDetails) -> List[str]:
         Main.show_error(str(e))
 
 
-def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, explain = True):
+def retrieve_query(
+    login_details: LoginDetails, querydetails: QueryDetails, explain=True
+):
     with DatabaseConnector(login_details, querydetails.database) as cursor:
         if explain:
             query = f"EXPLAIN (ANALYZE, VERBOSE, FORMAT JSON) {str(querydetails.query)}"
         else:
             query = str(querydetails.query)
-        
+
         try:
             print(querydetails.query.strip())
             cursor.execute(query)
@@ -96,6 +98,7 @@ def retrieve_query(login_details: LoginDetails, querydetails: QueryDetails, expl
 
 def load_qep_explanations(tree):
     return tree.explain_all_nodes(tree.root).strip()
+
 
 def initialize_tree(plan_json, login_details, query_details):
     tree = Tree(login_details, query_details)
@@ -132,12 +135,12 @@ class Tree(object):
         self.order = 1
 
     def build_tree(self, node_json):
-        '''
+        """
         Recursively build the binary tree from JSON data
         Data given to build_tree is the value of the key "Plan"
 
         @param node_json: The JSON / dictionary of details specific to the node
-        '''
+        """
 
         # Saves the root and begins recursively creating the tree
         self.root = self._build_tree_recursive(node_json, count=[1])
@@ -179,15 +182,15 @@ class Tree(object):
         return node
 
     def explain_all_nodes(self, node):
-        '''
+        """
         Perform depth-first traversal of the query tree to obtain
         the explanations for all of the nodes in the tree
 
         @param node: Current node to explain.
-                     On first call of the function, node = root. 
+                     On first call of the function, node = root.
                      Otherwise, node is either node.left or node.right
         @return: The output for the entire tree
-        '''
+        """
 
         if node is not None:
             self.explain_all_nodes(node.left)
@@ -214,57 +217,75 @@ class Tree(object):
         return self.full_output
 
     def instantiate_node(self, node_json):
-        '''
+        """
         Checks what is the value of node_json["Node Type"]
-        
+
         Then, instantiate a Node subclass based on the node type
 
         @param node_json: The JSON / dictionary of details specific to the node
         @return: An instance of the selected subclass of Node
-        '''
+        """
         match node_json["Node Type"]:
             case "Seq Scan":
                 return SeqScanNode(node_json, self.login_details, self.query_details)
-            case "Index Scan": 
+            case "Index Scan":
                 return IndexScanNode(node_json, self.login_details, self.query_details)
-            case "Index Only Scan": 
-                return IndexOnlyScanNode(node_json, self.login_details, self.query_details)
-            case "Bitmap Index Scan": 
-                return BitmapIndexScanNode(node_json, self.login_details, self.query_details)
-            case "Bitmap Heap Scan": 
-                return BitmapHeapScanNode(node_json, self.login_details, self.query_details)
-            case "Bitmap And": 
+            case "Index Only Scan":
+                return IndexOnlyScanNode(
+                    node_json, self.login_details, self.query_details
+                )
+            case "Bitmap Index Scan":
+                return BitmapIndexScanNode(
+                    node_json, self.login_details, self.query_details
+                )
+            case "Bitmap Heap Scan":
+                return BitmapHeapScanNode(
+                    node_json, self.login_details, self.query_details
+                )
+            case "Bitmap And":
                 return BitmapAndNode(node_json, self.login_details, self.query_details)
-            case "Bitmap Or": 
+            case "Bitmap Or":
                 return BitmapOrNode(node_json, self.login_details, self.query_details)
-            case "CTE Scan": 
+            case "CTE Scan":
                 return CTEScanNode(node_json, self.login_details, self.query_details)
-            case "Subquery Scan": 
-                return SubqueryScanNode(node_json, self.login_details, self.query_details)
-            case "Append": 
+            case "Subquery Scan":
+                return SubqueryScanNode(
+                    node_json, self.login_details, self.query_details
+                )
+            case "Append":
                 return AppendNode(node_json, self.login_details, self.query_details)
-            case "MergeAppend": 
-                return MergeAppendNode(node_json, self.login_details, self.query_details)
-            case "Nested Loop Join": 
-                return NestedLoopJoinNode(node_json, self.login_details, self.query_details)
-            case "Merge Join": 
+            case "MergeAppend":
+                return MergeAppendNode(
+                    node_json, self.login_details, self.query_details
+                )
+            case "Nested Loop Join":
+                return NestedLoopJoinNode(
+                    node_json, self.login_details, self.query_details
+                )
+            case "Merge Join":
                 return MergeJoinNode(node_json, self.login_details, self.query_details)
-            case "Hash": 
+            case "Hash":
                 return HashNode(node_json, self.login_details, self.query_details)
-            case "Hash Join": 
+            case "Hash Join":
                 return HashJoinNode(node_json, self.login_details, self.query_details)
-            case "Gather": 
+            case "Gather":
                 return GatherNode(node_json, self.login_details, self.query_details)
-            case "Gather Merge": 
-                return GatherMergeNode(node_json, self.login_details, self.query_details)
+            case "Gather Merge":
+                return GatherMergeNode(
+                    node_json, self.login_details, self.query_details
+                )
             case "Sort":
                 return SortNode(node_json, self.login_details, self.query_details)
             case "Incremental Sort":
-                return IncrementalSortNode(node_json, self.login_details, self.query_details)
+                return IncrementalSortNode(
+                    node_json, self.login_details, self.query_details
+                )
             case "Limit":
                 return LimitNode(node_json, self.login_details, self.query_details)
             case "Materialize":
-                return MaterializeNode(node_json, self.login_details, self.query_details)
+                return MaterializeNode(
+                    node_json, self.login_details, self.query_details
+                )
             case "Memoize":
                 return MemoizeNode(node_json, self.login_details, self.query_details)
             case "Group":
@@ -273,7 +294,7 @@ class Tree(object):
                 return AggregateNode(node_json, self.login_details, self.query_details)
             case "Unique":
                 return UniqueNode(node_json, self.login_details, self.query_details)
-            case _: 
+            case _:
                 return Node(node_json, self.login_details, self.query_details)
 
 
@@ -346,7 +367,9 @@ class Node(object):
         self.output = ""
 
         # Briefly introduce the node with the name of the Node Type
-        self.append(str(order) + ". " + self.node_json["Node Type"] + " (#" + str(self.id) + ")")
+        self.append(
+            str(order) + ". " + self.node_json["Node Type"] + " (#" + str(self.id) + ")"
+        )
         self.append()
 
         # Append the formula explanation
@@ -389,20 +412,16 @@ class Node(object):
         parent_dict = {
             # Node type of current node
             "Node Type": "Placeholder",
-
             # Estimated number of blocks for the intermediate relation
             # resulting from this node
             "block_size": 0,
-
             # Estimated number of tuples for the intermediate relation
             # resulting from this node
             "tuple_size": 0,
-
             # Manually calculated cost of executing this node
             "manual_cost": 0,
-
             # Given Total Cost by Postgres from executing this node
-            "postgre_cost": 0
+            "postgre_cost": 0,
         }
 
         return parent_dict
@@ -421,8 +440,8 @@ class Node(object):
             for key, value in self.right.parent_dict.items():
                 self.node_json["Right " + key] = value
 
-    def append(self, tgt: str = "", src: str = "output", eol: str = '\n'):
-        '''
+    def append(self, tgt: str = "", src: str = "output", eol: str = "\n"):
+        """
         Append a string to the end of the selected string.
         If no src is specified, then append to Node.output
         If no tgt is specified, then the behaviour is similar to print(),
@@ -435,7 +454,7 @@ class Node(object):
                     If append to self.str_explain_difference, src = "difference"
                     Otherwise, append to self.output
         @param eol: End-of-line. Append additionally this character or string to the end of the target string
-        '''
+        """
 
         match src:
             case "formula":
@@ -458,16 +477,20 @@ class Node(object):
         # Prepare the query
         query_details = QueryDetails
         query_details.database = self.query_details.database
-        query_details.query = '''
+        query_details.query = """
         SELECT pg_relation_size('{rel}') / current_setting('block_size')::int AS num_blocks
-        '''.format(rel = relation)
+        """.format(
+            rel=relation
+        )
 
         # Execute and retrieve the values
         result = retrieve_query(self.login_details, query_details, False)
         num_blocks = result[0][0]
 
-        if show: 
-            self.append("Number of blocks for relation '" + relation + "': " + str(num_blocks))
+        if show:
+            self.append(
+                "Number of blocks for relation '" + relation + "': " + str(num_blocks)
+            )
         return num_blocks
 
     def T(self, relation: str, show: bool = True):
@@ -481,16 +504,20 @@ class Node(object):
         # Prepare the query
         query_details = QueryDetails
         query_details.database = self.query_details.database
-        query_details.query = '''
+        query_details.query = """
         SELECT COUNT(*) as num_tuples FROM {rel}
-        '''.format(rel = relation)
+        """.format(
+            rel=relation
+        )
 
         # Execute and retrieve the values
         result = retrieve_query(self.login_details, query_details, False)
         num_tuples = result[0][0]
 
-        if show: 
-            self.append("Number of tuples for relation '" + relation + "': " + str(num_tuples))
+        if show:
+            self.append(
+                "Number of tuples for relation '" + relation + "': " + str(num_tuples)
+            )
         return num_tuples
 
     def M(self, show: bool = True):
@@ -503,15 +530,15 @@ class Node(object):
         # Prepare the query
         query_details = QueryDetails
         query_details.database = self.query_details.database
-        query_details.query = '''
+        query_details.query = """
         SELECT setting FROM pg_settings WHERE name = 'shared_buffers';
-        '''
+        """
 
         # Execute and retrieve the values
         result = retrieve_query(self.login_details, query_details, False)
         buffer_size = int(result[0][0])
 
-        if show: 
+        if show:
             self.append("Buffer size: " + str(buffer_size))
         return buffer_size
 
@@ -528,22 +555,24 @@ class Node(object):
         # Prepare the query
         query_details = QueryDetails
         query_details.database = self.query_details.database
-        query_details.query = '''
+        query_details.query = """
         SELECT COUNT(DISTINCT {attr}) AS num_unique_values FROM {rel};
-        '''.format(attr = attribute, rel = relation)
+        """.format(
+            attr=attribute, rel=relation
+        )
 
         # Execute and retrieve the values
         result = retrieve_query(self.login_details, query_details, False)
         num_unique = result[0][0]
 
-        if show: 
+        if show:
             self.append(
-                "Number of unique values for attribute '" +
-                attribute +
-                "' of relation '" +
-                relation +
-                "': " +
-                str(num_unique)
+                "Number of unique values for attribute '"
+                + attribute
+                + "' of relation '"
+                + relation
+                + "': "
+                + str(num_unique)
             )
         return num_unique
 
@@ -552,9 +581,10 @@ class Node(object):
 
 
 class MyNode(Node):
-    '''
+    """
     Testing node. Will print all of B(), T(), V() and M
-    '''
+    """
+
     def define_explanations(self):
         self.str_explain_formula = "Formula: B(rel) + T(rel) + V(rel, attr) + M"
         self.str_explain_difference = "Some explanation for difference"
@@ -563,7 +593,7 @@ class MyNode(Node):
         rel = "nation"
         attr = "n_name"
         return self.B(rel) + self.T(rel) + self.V(rel, attr) + self.M()
-    
+
     def build_parent_dict(self):
         rel = "nation"
 
@@ -572,21 +602,23 @@ class MyNode(Node):
             "block_size": self.B(rel, False),
             "tuple_size": self.T(rel, False),
             "manual_cost": 10,
-            "postgre_cost": self.node_json["Total Cost"]
+            "postgre_cost": self.node_json["Total Cost"],
         }
 
         return parent_dict
 
+
 class ScanNodes(Node):
-    '''
+    """
     Helper class that contains utility functions for most scan-related nodes
-    '''
+    """
+
     def cardinality(self, is_tuple):
-        '''
+        """
         Estimate number of filtered tuple resulting from this query node
 
         @param is_tuple: True if returning number of tuples. False if returning number of blocks
-        '''
+        """
 
         # Preliminary calculations
         rel = self.node_json["Relation Name"]
@@ -610,23 +642,23 @@ class ScanNodes(Node):
 
             if ">" or "<" in op:
                 # Case 2: Retrieve a range of records. Selectivity = 1/3
-                selectivity = 1/3
+                selectivity = 1 / 3
 
             else:
                 # Case 3: Retrieve one exact record. Selectivity = V(R, a)
                 if num_unique == 0:
                     selectivity = 0
-                selectivity = 1/num_unique
+                selectivity = 1 / num_unique
 
             # Multiply selectivity into num_return
             num_return *= selectivity
 
     def count_conditions(self):
-        '''
+        """
         Determine the number of conditions embedded in the filter
 
         @return An integer specifying the number of conditions. If "Filter" is not present, return 0
-        '''
+        """
 
         # Retrieve the filter from node_json
         if "Filter" in self.node_json:
@@ -635,19 +667,19 @@ class ScanNodes(Node):
             filter = self.node_json["Index Cond"]
         else:
             return 0
-        
-        # Count the occurrences of 'AND' to determine the number of conditions
-        return filter.count('AND') + 1
 
-    def retrieve_attribute_from_condition(self, cond_index = 0):
-        '''
+        # Count the occurrences of 'AND' to determine the number of conditions
+        return filter.count("AND") + 1
+
+    def retrieve_attribute_from_condition(self, cond_index=0):
+        """
         Pass in the value from node_json["Filter"] or node_json["Index Cond"] and return the attribute
         Example filter = "(o_custkey < 1000000)" returns "o_custkey"
 
         @param cond_index: Condition index. For filters with more than one condition,
                            specify which condition to extract the attribute from.
                            Condition index starts from 0
-        '''
+        """
 
         # Retrieve the filter from node_json
         if "Filter" in self.node_json:
@@ -658,61 +690,69 @@ class ScanNodes(Node):
             return
 
         # Find the condition within parentheses using split
-        conditions = filter.split('AND')
+        conditions = filter.split("AND")
 
         # Extract the specified condition and remove the brackets
-        specified_condition = conditions[cond_index].strip().strip('()')
+        specified_condition = conditions[cond_index].strip().strip("()")
 
         # Find the index of the comparison operator
-        comparison_operators = ['<', '>', '=']
-        index = min(specified_condition.find(op) for op in comparison_operators if op in specified_condition)
+        comparison_operators = ["<", ">", "="]
+        index = min(
+            specified_condition.find(op)
+            for op in comparison_operators
+            if op in specified_condition
+        )
 
         # Extract the text before the comparison operator
         text_before_operator = specified_condition[:index].strip()
 
         # Extract the attribute name from the text before the comparison operator
-        attr = text_before_operator.split('.')[-1]
+        attr = text_before_operator.split(".")[-1]
 
         return attr
-    
-    def retrieve_operator_from_condition(self, cond_index = 0):
-        '''
+
+    def retrieve_operator_from_condition(self, cond_index=0):
+        """
         Pass in the value from node_json["Filter"] or node_json["Index Cond"] and return the attribute
         Example filter = "(o_custkey < 1000000)" returns '<'
 
         @param cond_index: Condition index. For filters with more than one condition,
                            specify which condition to extract the attribute from.
                            Condition index starts from 0
-        '''
+        """
 
         # Find the condition within parentheses using split
-        conditions = filter.split('AND')
-        
+        conditions = filter.split("AND")
+
         # Extract the specified condition and strip opening and closing brackets
-        specified_condition = conditions[cond_index - 1].strip().strip('()')
-        
+        specified_condition = conditions[cond_index - 1].strip().strip("()")
+
         # Find the index of the comparison operator
-        comparison_operators = ['<', '>', '=', '<=', '>=']
-        index = min(specified_condition.find(op) for op in comparison_operators if op in specified_condition)
-        
+        comparison_operators = ["<", ">", "=", "<=", ">="]
+        index = min(
+            specified_condition.find(op)
+            for op in comparison_operators
+            if op in specified_condition
+        )
+
         # Extract the comparison operator
         operator = specified_condition[index:].split()[0]
-        
+
         # Map <= and >= to < and >
-        if operator == '<=':
-            operator = '<'
-        elif operator == '>=':
-            operator = '>'
-        
+        if operator == "<=":
+            operator = "<"
+        elif operator == ">=":
+            operator = ">"
+
         return operator
-    
+
     def build_parent_dict(self):
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.cardinality(False),
             "tuple_size": self.cardinality(True),
             "manual_cost": 0,
-            "postgre_cost": self.node_json["Total Cost"]
+            "postgre_cost": self.node_json["Total Cost"],
         }
 
         return parent_dict
@@ -725,17 +765,23 @@ class SeqScanNode(ScanNodes):
 
         # Explain the relation, attribute
         rel = self.node_json["Relation Name"]
-        self.append(src = "formula", tgt = "Sequential scan on relation '" + rel + "'")
-        self.append(src = "formula", tgt = "Cost Formula: B(" + rel + ")")
+        self.append(src="formula", tgt="Sequential scan on relation '" + rel + "'")
+        self.append(src="formula", tgt="Cost Formula: B(" + rel + ")")
 
         # Explain the difference
-        self.append(src = "difference", tgt = "PostgreSQL estimates the selectivity more accurately.")
-        self.append(src = "difference", tgt = "PostgreSQL factors in parallel processing and CPU cost into the calculation")
+        self.append(
+            src="difference",
+            tgt="PostgreSQL estimates the selectivity more accurately.",
+        )
+        self.append(
+            src="difference",
+            tgt="PostgreSQL factors in parallel processing and CPU cost into the calculation",
+        )
 
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
         return self.B(rel)
-    
+
     def build_parent_dict(self):
         # All other values are unchanged
         parent_dict = super().build_parent_dict()
@@ -755,19 +801,34 @@ class IndexScanNode(ScanNodes):
         # Explain the relation, attribute
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_condition()
-        self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
-        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
+        self.append(
+            src="formula",
+            tgt="Index on attribute '" + attr + "' of relation '" + rel + "'",
+        )
+        self.append(
+            src="formula",
+            tgt="Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")",
+        )
 
         # Explain the difference
-        self.append(src = "difference", tgt = "PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.")
-        self.append(src = "difference", tgt = "Also, PostgreSQL uses optimizations such as parallel processing and caching.")
-        self.append(src = "difference", tgt = "These will either reduce cost or makes cost computation more accurate.")
+        self.append(
+            src="difference",
+            tgt="PostgreSQL uses the more accurate Market and Lohman approximation to estimate number of pages fetched.",
+        )
+        self.append(
+            src="difference",
+            tgt="Also, PostgreSQL uses optimizations such as parallel processing and caching.",
+        )
+        self.append(
+            src="difference",
+            tgt="These will either reduce cost or makes cost computation more accurate.",
+        )
 
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_condition()
         return self.T(rel) / self.V(rel, attr)
-    
+
     def build_parent_dict(self):
         # All other values are unchanged
         parent_dict = super().build_parent_dict()
@@ -785,11 +846,17 @@ class IndexOnlyScanNode(ScanNodes):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
-        # Explain the relation, attribute 
+        # Explain the relation, attribute
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_condition()
-        self.append(src = "formula", tgt = "Index on attribute '" + attr + "' of relation '" + rel + "'")
-        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
+        self.append(
+            src="formula",
+            tgt="Index on attribute '" + attr + "' of relation '" + rel + "'",
+        )
+        self.append(
+            src="formula",
+            tgt="Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")",
+        )
 
         # Explain the difference
         self.str_explain_difference = """Index Only Scan differs from Index Scan in that PostgreSQL only needs to access the index blocks as all of the values required are in the index.
@@ -800,7 +867,7 @@ class IndexOnlyScanNode(ScanNodes):
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_condition()
         return self.T(rel) / self.V(rel, attr)
-    
+
     def build_parent_dict(self):
         # All other values are unchanged
         parent_dict = super().build_parent_dict()
@@ -818,12 +885,14 @@ class BitmapIndexScanNode(Node):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
-        self.str_explain_formula = "As PostgreSQL does not access the data blocks, the cost is negligible"
-        self.str_explain_difference = '''PostgreSQL factors in the cost of accessing the index blocks of the relation'''
+        self.str_explain_formula = (
+            "As PostgreSQL does not access the data blocks, the cost is negligible"
+        )
+        self.str_explain_difference = """PostgreSQL factors in the cost of accessing the index blocks of the relation"""
 
     def manual_cost(self):
         return 0
-    
+
     def build_parent_dict(self):
         rel = self.node_json["Relation Name"]
 
@@ -832,7 +901,7 @@ class BitmapIndexScanNode(Node):
             "block_size": self.B(rel, False),
             "tuple_size": self.T(rel, False),
             "manual_cost": 0,
-            "postgre_cost": self.node_json["Total Cost"]
+            "postgre_cost": self.node_json["Total Cost"],
         }
 
         return parent_dict
@@ -843,11 +912,21 @@ class BitmapHeapScanNode(ScanNodes):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
-        # Explain the relation, attribute 
+        # Explain the relation, attribute
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_condition()
-        self.append(src = "formula", tgt = "Accessing the heap through index on attribute '" + attr + "' of relation '" + rel + "'")
-        self.append(src = "formula", tgt = "Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")")
+        self.append(
+            src="formula",
+            tgt="Accessing the heap through index on attribute '"
+            + attr
+            + "' of relation '"
+            + rel
+            + "'",
+        )
+        self.append(
+            src="formula",
+            tgt="Cost Formula: T(" + rel + ") / V(" + rel + ", " + attr + ")",
+        )
 
         # Explain the difference
         self.str_explain_difference = """PostgreSQL factors in overhead of bitmap access into cost calculation
@@ -857,7 +936,7 @@ class BitmapHeapScanNode(ScanNodes):
         rel = self.node_json["Relation Name"]
         attr = super().retrieve_attribute_from_condition()
         return self.T(rel) / self.V(rel, attr)
-    
+
     def build_parent_dict(self):
         # All other values are unchanged
         parent_dict = super().build_parent_dict()
@@ -873,21 +952,27 @@ class BitmapHeapScanNode(ScanNodes):
 class BitmapAndNode(Node):
     def define_explanations(self):
         self.str_explain_formula = "AND operation on bit arrays are negligible"
-        self.str_explain_difference = '''PostgreSQL factors in overhead of bitmap access into cost calculation'''
+        self.str_explain_difference = (
+            """PostgreSQL factors in overhead of bitmap access into cost calculation"""
+        )
 
     def manual_cost(self):
         return 0
-    
+
     def build_parent_dict(self):
         rel = self.node_json["Relation Name"]
 
         # Treat this as an intersect operator unless there is more time
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
-            "block_size": min(self.node_json["Left block_size"], self.node_json["Right block_size"]),
-            "tuple_size": min(self.node_json["Left tuple_size"], self.node_json["Right tuple_size"]),
+            "block_size": min(
+                self.node_json["Left block_size"], self.node_json["Right block_size"]
+            ),
+            "tuple_size": min(
+                self.node_json["Left tuple_size"], self.node_json["Right tuple_size"]
+            ),
             "manual_cost": 0,
-            "postgre_cost": self.node_json["Total Cost"]
+            "postgre_cost": self.node_json["Total Cost"],
         }
 
         return parent_dict
@@ -901,17 +986,19 @@ class BitmapOrNode(Node):
 
     def manual_cost(self):
         return 0
-    
+
     def build_parent_dict(self):
         rel = self.node_json["Relation Name"]
 
         # Treat this as a union operator unless there is more time
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
-            "block_size": self.node_json["Left block_size"] + self.node_json["Right block_size"],
-            "tuple_size": self.node_json["Left tuple_size"] + self.node_json["Right tuple_size"],
+            "block_size": self.node_json["Left block_size"]
+            + self.node_json["Right block_size"],
+            "tuple_size": self.node_json["Left tuple_size"]
+            + self.node_json["Right tuple_size"],
             "manual_cost": 0,
-            "postgre_cost": self.node_json["Total Cost"]
+            "postgre_cost": self.node_json["Total Cost"],
         }
 
         return parent_dict
@@ -924,11 +1011,14 @@ class CTEScanNode(SeqScanNode):
 
     pass
 
+
 class SubqueryScanNode(SeqScanNode):
-    '''
+    """
     Subquery Scan is very similar to sequential scan, but for nested SELECT operations
-    '''
+    """
+
     pass
+
 
 class AppendNode(Node):
     def define_explanations(self):
@@ -942,12 +1032,25 @@ class AppendNode(Node):
         """
 
     def manual_cost(self):
-
-        total_cost = (
-            self.node_json["Left manual_cost"] + self.node_json["Right manual_cost"]
-        )
+        total_cost = self.node_json["Left manual_cost"]
+        if self.right is not None:
+            total_cost += self.node_json["Right manual_cost"]
 
         return total_cost
+
+    def build_parent_dict(self):
+
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
 
 
 class MergeAppendNode(Node):
@@ -962,18 +1065,33 @@ class MergeAppendNode(Node):
         """
 
     def manual_cost(self):
-        total_cost = (
-            self.node_json["Left manual_cost"] + self.node_json["Right manual_cost"]
-        )
+        total_cost = self.node_json["Left manual_cost"]
+        if self.right is not None:
+            total_cost += self.node_json["Right manual_cost"]
 
         # Merge cost might be proportional to the total number of rows across all children
         # Assuming a linear merge cost model here
-        merge_cost = (
-            self.node_json["Left tuple_size"] + self.node_json["Right tuple_size"]
-        )
+        merge_cost = self.node_json["Left tuple_size"]
+        if self.right is not None:
+            merge_cost += self.node_json["Right tuple_size"]
+
         total_cost += merge_cost
 
         return total_cost
+
+    def build_parent_dict(self):
+
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
 
 
 class NestedLoopJoinNode(Node):
@@ -1000,6 +1118,20 @@ class NestedLoopJoinNode(Node):
 
         return min(R_block_size, S_block_size) + (R_block_size * S_block_size)
 
+    def build_parent_dict(self):
+
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
+
 
 class MergeJoinNode(Node):
     def define_explanations(self):
@@ -1024,6 +1156,20 @@ class MergeJoinNode(Node):
         S_block_size = self.node_json["Right block_size"]
 
         return 3 * (R_block_size + S_block_size)
+
+    def build_parent_dict(self):
+
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
 
 
 class HashNode(Node):
@@ -1053,6 +1199,20 @@ class HashNode(Node):
 
         return 0
 
+    def build_parent_dict(self):
+
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": 0,
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
+
 
 class HashJoinNode(Node):
     def define_explanations(self):
@@ -1079,8 +1239,22 @@ class HashJoinNode(Node):
 
         return 3 * (R_block_size * S_block_size)
 
+    def build_parent_dict(self):
 
-class GatherNode(Node): # formula unsure
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
+
+
+class GatherNode(Node):  # formula unsure
     def define_explanations(self):
 
         # Explain the relation, attribute
@@ -1093,13 +1267,28 @@ class GatherNode(Node): # formula unsure
         """
 
     def manual_cost(self):
-        total_cost = 0
-        for child in self.node_json["ChildNodes"]:
-            total_cost += child.manual_cost()
+        total_cost = self.node_json["Left manual_cost"]
+        if self.right is not None:
+            total_cost += self.node_json["Right manual_cost"]
+
         return total_cost
 
+    def build_parent_dict(self):
 
-class GatherMergeNode(Node): # formula unsure
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
+
+
+class GatherMergeNode(Node):  # formula unsure
     def define_explanations(self):
 
         # Explain the relation, attribute
@@ -1126,12 +1315,26 @@ class GatherMergeNode(Node): # formula unsure
 
         return total_cost
 
+    def build_parent_dict(self):
+
+        rel = self.node_json["Relation Name"]
+
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
+
 
 class SortGroupNodes(Node):
     def extract_relation_name(self):
-        '''
+        """
         Retrieve the name of the relation from node_json["Sort Key"] or node_json["Group Key"]
-        '''
+        """
 
         # Retrieve the value from node_json
         if "Sort Key" in self.node_json:
@@ -1140,7 +1343,7 @@ class SortGroupNodes(Node):
             key = self.node_json["Group Key"][0]
 
         # Split the key string by dot (.) to separate the relation name
-        parts = key.split('.')
+        parts = key.split(".")
         if len(parts) > 1:
             # Return the first part as the relation name
             return parts[0]
@@ -1153,35 +1356,56 @@ class SortNode(SortGroupNodes):
     def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
-        #explain relation and attributes
- 
-        if (self.node_json["Sort Method"] == "external merge"):
-            self.append(src = "formula", tgt = "Mergesort Formula : 3 * B(rel)")
-            self.append(src = "formula", tgt = "Mergesort is used when data does not fit in memory(work_mem)")
-            self.append(src = "formula", tgt = "Plan width * T(R) > work_mem")
-            self.append(src = "difference", tgt = "PostgreSQL includes default cost per comparison costs and overhead per extracted tuple")
- 
-        elif(self.node_json["Sort Method"] == "quicksort"):
-            self.append(src = "formula", tgt = "Quicksort Formula : B(rel). This is the default algorithm")
-            self.append(src = "formula", tgt = "Quicksort is used when entire data fits into memory(work_mem) -- One pass.")
-            self.append(src = "formula", tgt = "Plan width * T(R) < work_mem")
-            self.append(src = "difference", tgt = "PostgreSQL includes default cost per comparison costs and overhead per extracted tuple")
+        # explain relation and attributes
 
-        elif(self.node_json["Sort Method"] == "top-N heapsort"):
-            self.append(src = "formula", tgt = "Top-N heapsort Formula : B(rel) / 3.")
-            self.append(src = "formula", tgt = "Top-N heapsort is used when only a limited amount of data is required, such as when theres LIMIT after order.")
-            self.append(src = "difference", tgt = "PostgreSQL includes default cost per comparison costs and overhead per extracted tuple, as well as cost to maintain heap of the top N items.")
-    
+        if self.node_json["Sort Method"] == "external merge":
+            self.append(src="formula", tgt="Mergesort Formula : 3 * B(rel)")
+            self.append(
+                src="formula",
+                tgt="Mergesort is used when data does not fit in memory(work_mem)",
+            )
+            self.append(src="formula", tgt="Plan width * T(R) > work_mem")
+            self.append(
+                src="difference",
+                tgt="PostgreSQL includes default cost per comparison costs and overhead per extracted tuple",
+            )
+
+        elif self.node_json["Sort Method"] == "quicksort":
+            self.append(
+                src="formula",
+                tgt="Quicksort Formula : B(rel). This is the default algorithm",
+            )
+            self.append(
+                src="formula",
+                tgt="Quicksort is used when entire data fits into memory(work_mem) -- One pass.",
+            )
+            self.append(src="formula", tgt="Plan width * T(R) < work_mem")
+            self.append(
+                src="difference",
+                tgt="PostgreSQL includes default cost per comparison costs and overhead per extracted tuple",
+            )
+
+        elif self.node_json["Sort Method"] == "top-N heapsort":
+            self.append(src="formula", tgt="Top-N heapsort Formula : B(rel) / 3.")
+            self.append(
+                src="formula",
+                tgt="Top-N heapsort is used when only a limited amount of data is required, such as when theres LIMIT after order.",
+            )
+            self.append(
+                src="difference",
+                tgt="PostgreSQL includes default cost per comparison costs and overhead per extracted tuple, as well as cost to maintain heap of the top N items.",
+            )
+
     def manual_cost(self):
         rel = super().extract_relation_name()
-        if (self.node_json["Sort Method"] == "external merge"):
+        if self.node_json["Sort Method"] == "external merge":
             return self.B(rel) * 3
-        
-        elif(self.node_json["Sort Method"] == "quicksort"):
+
+        elif self.node_json["Sort Method"] == "quicksort":
             return self.B(rel)
-        
-        elif(self.node_json["Sort Method"] == "top-N heapsort"):
-            #Not sure about topn cost
+
+        elif self.node_json["Sort Method"] == "top-N heapsort":
+            # Not sure about topn cost
             return self.B(rel) / 3
 
 
@@ -1190,23 +1414,32 @@ class IncrementalSortNode(SortGroupNodes):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
-        #explain relation and attributes
-        self.append(src = "formula", tgt = "Formula : B(rel) - Estimated Sorted Blocks.")
-        self.append(src = "formula", tgt = "Incremental Sort is used when input data is partially ordered")
-        self.append(src = "difference", tgt = "Postgresql uses different calculations to calculate number of groups with equal presorted keys.")
-        self.append(src = "difference", tgt = "There are also overhead costs in detecting sort groups and additional costs for each input group.")
-    
+        # explain relation and attributes
+        self.append(src="formula", tgt="Formula : B(rel) - Estimated Sorted Blocks.")
+        self.append(
+            src="formula",
+            tgt="Incremental Sort is used when input data is partially ordered",
+        )
+        self.append(
+            src="difference",
+            tgt="Postgresql uses different calculations to calculate number of groups with equal presorted keys.",
+        )
+        self.append(
+            src="difference",
+            tgt="There are also overhead costs in detecting sort groups and additional costs for each input group.",
+        )
+
     def manual_cost(self):
         rel = super().extract_relation_name()
-        return self.B(rel)/3 
+        return self.B(rel) / 3
 
 
 class LimitNode(Node):
     def define_explanations(self):
-        #explain relation and attributes
+        # explain relation and attributes
         self.str_explain_formula = "Formula : B(rel) * "
-        self.str_explain_difference = '''Explain '''
- 
+        self.str_explain_difference = """Explain """
+
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
         return self.B(rel)
@@ -1217,26 +1450,41 @@ class MaterializeNode(Node):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
 
-        #explain relation and attributes
-        self.append(src = "formula", tgt = "Materialize Formula : T(rel) * 2")
-        self.append(src = "formula", tgt = "Materialize is used to store intermediate results temporarily to improve efficiency")
-        self.append(src = "difference", tgt = "PostgreSQL includes cpu operator costs per tuple to reflect bookkeeping overhead.")
-        self.append(src = "difference", tgt = "PostgreSQL also accounts for when volume of data to materialize exceeds work_mem and needs to be written to disk(higher cost)")
- 
+        # explain relation and attributes
+        self.append(src="formula", tgt="Materialize Formula : T(rel) * 2")
+        self.append(
+            src="formula",
+            tgt="Materialize is used to store intermediate results temporarily to improve efficiency",
+        )
+        self.append(
+            src="difference",
+            tgt="PostgreSQL includes cpu operator costs per tuple to reflect bookkeeping overhead.",
+        )
+        self.append(
+            src="difference",
+            tgt="PostgreSQL also accounts for when volume of data to materialize exceeds work_mem and needs to be written to disk(higher cost)",
+        )
+
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
         return self.T(rel) * 2
- 
+
 
 class MemoizeNode(Node):
     def define_explanations(self):
         self.str_explain_formula = ""
 
-        #explain relation and attributes
-        self.append(src = "formula", tgt = "Memoize used to cache and reuse results of expensive operations when they are executed with the same parameters multiple times in a query.")
-        self.append(src = "formula", tgt = "Since the previous query used it, there is no cost involved in fetching it from memory again.")
-        self.str_explain_difference = '''Costs of a memoize node dependent also on nature of operations and frequency, cache hit rate and lookup times  '''
- 
+        # explain relation and attributes
+        self.append(
+            src="formula",
+            tgt="Memoize used to cache and reuse results of expensive operations when they are executed with the same parameters multiple times in a query.",
+        )
+        self.append(
+            src="formula",
+            tgt="Since the previous query used it, there is no cost involved in fetching it from memory again.",
+        )
+        self.str_explain_difference = """Costs of a memoize node dependent also on nature of operations and frequency, cache hit rate and lookup times  """
+
     def manual_cost(self):
         return 0
 
@@ -1244,43 +1492,51 @@ class MemoizeNode(Node):
 class GroupNode(Node):
     def define_explanations(self):
         self.str_explain_formula = "Formula : T(rel) * Number of Group Columns. "
-        self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
- 
+        self.str_explain_difference = """PostgreSQL includes default cost per comparison costs overhead per input tuple.  """
+
     def manual_cost(self):
-        #test if can
+        # test if can
         rel = self.node_json["Relation Name"]
         numGroupCol = len(self.node_json.get("Group Key", []))
         return self.T(rel) * numGroupCol
- 
+
+
 class AggregateNode(SortGroupNodes):
     def define_explanations(self):
-        
-        if (self.node_json["Strategy"] == "Sorted" or self.node_json["Strategy"] == "Mixed"):
+
+        if (
+            self.node_json["Strategy"] == "Sorted"
+            or self.node_json["Strategy"] == "Mixed"
+        ):
             self.str_explain_formula = "Formula : T(rel) * Number of groups. Aggregate used to compute summaries from sets of values like SUM,AVG. "
-            self.str_explain_difference = '''PostgreSQL has different aggregate strategies depending on the input.  '''
- 
-        #assume T(rel) as cost
-        elif (self.node_json["Strategy"] == "Hashed"):
+            self.str_explain_difference = """PostgreSQL has different aggregate strategies depending on the input.  """
+
+        # assume T(rel) as cost
+        elif self.node_json["Strategy"] == "Hashed":
             self.str_explain_formula = "Formula : T(rel). Aggregate hash strategy used over all rows when there is no group by"
-            self.str_explain_difference = '''Aggregate Hash costs include computing hash value and retiving from hash table, and cost due to chance of tuple spilling.  '''
-        
-        #default, Agg strategy is plain
+            self.str_explain_difference = """Aggregate Hash costs include computing hash value and retiving from hash table, and cost due to chance of tuple spilling.  """
+
+        # default, Agg strategy is plain
         else:
             self.str_explain_formula = "Formula : T(rel). Aggregate plain strategy used over all rows when there is no group by, no need for grouping before aggregation"
-            self.str_explain_difference = '''PostgreSQL includes default cost per comparison costs overhead per input tuple.  '''
-        
+            self.str_explain_difference = """PostgreSQL includes default cost per comparison costs overhead per input tuple.  """
+
     def manual_cost(self):
         rel = super().extract_relation_name()
-        if (self.node_json["Strategy"] == "Sorted" or self.node_json["Strategy"] == "Mixed"):
+        if (
+            self.node_json["Strategy"] == "Sorted"
+            or self.node_json["Strategy"] == "Mixed"
+        ):
             numGroupCol = len(self.node_json.get("Group Key", []))
             return self.T(rel) * numGroupCol
-        
+
         else:
             return self.T(rel)
-        
+
+
 class UniqueNode(Node):
     def define_explanations(self):
         self.str_explain_formula = "Remove duplicates from sorted set"
- 
+
     def manual_cost(self):
         return 0
