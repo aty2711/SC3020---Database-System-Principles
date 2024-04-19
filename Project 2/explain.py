@@ -1,8 +1,5 @@
 import numpy as np
-import re
-import interface
 import psycopg2
-import itertools
 from typing import TypedDict, List
 
 
@@ -54,6 +51,7 @@ def check_connection(login_details: LoginDetails, databasename=None):
         )
 
         # If the connection was successful, close it and return True
+        print("Login Successful")
         conn.close()
         return True
     except psycopg2.OperationalError as e:

@@ -1,8 +1,6 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QPushButton, QTextEdit, QTreeView, QLabel, QComboBox, QTreeWidgetItem, QTreeWidget
+from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QTextEdit, QLabel, QComboBox, QTreeWidgetItem, QTreeWidget
 from PyQt6.QtCore import Qt
-import sys
-import pyqtgraph as pg
 import json
 
 from explain import QueryDetails, LoginDetails, retrieve_query, load_qep_explanations, initialize_tree
@@ -218,13 +216,13 @@ class MainUI(QMainWindow):
 
     def build_tree_recursive(self, node, parent_widget):
         if node is not None:
-            tree_item = QTreeWidgetItem(parent_widget, [f"{node.id}. {node.node_json['Node Type']}", str(node.node_json["Total Cost"])])
+            tree_item = QTreeWidgetItem(parent_widget, [f"{node.id}. {node.node_json["Node Type"]}", str(node.node_json["Total Cost"])])
             self.build_tree_recursive(node.left, tree_item)        
             self.build_tree_recursive(node.right, tree_item)
 
     def populate_tree_widget(self, tree):
         root = tree.root
-        tree_item = QTreeWidgetItem(self.tree_widget, [f"{root.id}. {root.node_json['Node Type']}", str(tree.root.node_json["Total Cost"])])
+        tree_item = QTreeWidgetItem(self.tree_widget, [f"{root.id}. {root.node_json["Node Type"]}", str(tree.root.node_json["Total Cost"])])
         self.build_tree_recursive(tree.root.left, tree_item)
         self.build_tree_recursive(tree.root.right, tree_item)
 

@@ -1,8 +1,6 @@
 import sys
 from PyQt6 import QtWidgets
-
 from interface import LoginWidget, ErrorDialog, MainUI
-
 from explain import get_database_names, check_connection, LoginDetails, QueryDetails
 
 
