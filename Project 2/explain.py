@@ -1613,16 +1613,11 @@ class MemoizeNode(Node):
         return 0
         
     def build_parent_dict(self):
-        key = self.node_json["Output"][0]
-        parts = key.split(".")
-        if len(parts) > 1:
-            # Return the first part as the relation name
-             rel = parts[0]
             
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
-            "block_size": self.B(rel, False),
-            "tuple_size": self.T(rel, False),
+            "block_size": (self.node_json["Left block_size"]),
+            "tuple_size": (self.node_json["Left tuple_size"]),
             "manual_cost": self.manual_cost(),
             "postgre_cost": self.node_json["Total Cost"],
         }
