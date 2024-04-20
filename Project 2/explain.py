@@ -1541,16 +1541,11 @@ class LimitNode(Node):
         return 0
 
     def build_parent_dict(self):
-        key = self.node_json["Output"][0]
-        parts = key.split(".")
-        if len(parts) > 1:
-            # Return the first part as the relation name
-             rel = parts[0]
         
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
-            "block_size": self.B(rel, False),
-            "tuple_size": self.T(rel, False),
+            "block_size": self.node_json["Left block_size"],
+            "tuple_size": self.node_json["Left tuple_size"],
             "manual_cost": self.manual_cost(),
             "postgre_cost": self.node_json["Total Cost"],
         }
@@ -1659,10 +1654,12 @@ class GroupNode(Node):
 
         return parent_dict
 
-class AggregateNode(SortGroupNodes):
+class AggregateNode(Node):
+    #agg sorted, agg plain
     def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
+        
         if (
             self.node_json["Strategy"] == "Sorted"
             or self.node_json["Strategy"] == "Mixed"
@@ -1683,28 +1680,25 @@ class AggregateNode(SortGroupNodes):
             self.str_explain_difference = """PostgreSQL includes default cost per comparison costs overhead per input tuple.  """
 
     def manual_cost(self):
-        rel = super().extract_relation_name()
-        if (
-            self.node_json["Strategy"] == "Sorted"
-            or self.node_json["Strategy"] == "Mixed"
-        ):
-            numGroupCol = len(self.node_json.get("Group Key", []))
-            return self.T(rel) * numGroupCol
-
-        else:
-            return self.T(rel)
+        #child vals, block and tuple
+        R_blockSize = self.node_json["Left block_size"]
+        
+                
+        return (R_blockSize)
 
     def build_parent_dict(self):
-        rel = super().extract_relation_name()
+        
+
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
-            "block_size": self.B(rel, False),
-            "tuple_size": self.T(rel, False),
+            "block_size": (self.node_json["Left block_size"]),
+            "tuple_size": (self.node_json["Left tuple_size"]),
             "manual_cost": self.manual_cost(),
             "postgre_cost": self.node_json["Total Cost"],
         }
-
+        
         return parent_dict
+            
 
 
 class UniqueNode(Node):
@@ -1721,25 +1715,16 @@ class UniqueNode(Node):
         
 
     def manual_cost(self):
-        key = self.node_json["Output"][0]
-        parts = key.split(".")
-        if len(parts) > 1:
-            # Return the first part as the relation name
-             rel = parts[0]
-        return self.B(rel)
+        R_blockSize = self.node_json["Left block_size"]
+        return R_blockSize
 
     def build_parent_dict(self):
-        
-        key = self.node_json["Output"][0]
-        parts = key.split(".")
-        if len(parts) > 1:
-            # Return the first part as the relation name
-             rel = parts[0]
+
             
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
-            "block_size": self.B(rel, False),
-            "tuple_size": self.T(rel, False),
+            "block_size": (self.node_json["Left block_size"]),
+            "tuple_size": (self.node_json["Left tuple_size"]),
             "manual_cost": self.manual_cost(),
             "postgre_cost": self.node_json["Total Cost"],
         }
