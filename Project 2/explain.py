@@ -1484,7 +1484,7 @@ class SortNode(SortGroupNodes):
             return self.B(rel) / 3
 
     def build_parent_dict(self):
-        rel = self.node_json["Relation Name"]
+        rel = super().extract_relation_name()
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.B(rel, False),
@@ -1520,7 +1520,7 @@ class IncrementalSortNode(SortGroupNodes):
         return self.B(rel) / 3
 
     def build_parent_dict(self):
-        rel = self.node_json["Relation Name"]
+        rel = super().extract_relation_name()
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.B(rel, False),
@@ -1542,7 +1542,8 @@ class LimitNode(Node):
         return 0
 
     def build_parent_dict(self):
-        rel = self.node_json["Relation Name"]
+        rel = self.node_json["Output"][0]
+        
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.B(rel, False),
@@ -1634,12 +1635,12 @@ class GroupNode(Node):
 
     def manual_cost(self):
         # test if can
-        rel = self.node_json["Relation Name"]
+        rel = super().extract_relation_name()
         numGroupCol = len(self.node_json.get("Group Key", []))
         return self.T(rel) * numGroupCol
         
     def build_parent_dict(self):
-        rel = self.node_json["Relation Name"]
+        rel = super().extract_relation_name()
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.B(rel, False),
@@ -1686,7 +1687,7 @@ class AggregateNode(SortGroupNodes):
             return self.T(rel)
 
     def build_parent_dict(self):
-        rel = self.node_json["Relation Name"]
+        rel = super().extract_relation_name()
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.B(rel, False),
