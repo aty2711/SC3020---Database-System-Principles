@@ -1538,11 +1538,14 @@ class LimitNode(Node):
         self.str_explain_difference = """ PostgreSQL factors cpu overhead and comparison costs  """
 
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
         return 0
 
     def build_parent_dict(self):
-        rel = self.node_json["Output"][0]
+        key = self.node_json["Output"][0]
+        parts = key.split(".")
+        if len(parts) > 1:
+            # Return the first part as the relation name
+             rel = parts[0]
         
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
@@ -1615,7 +1618,12 @@ class MemoizeNode(Node):
         return 0
         
     def build_parent_dict(self):
-        rel = self.node_json["Relation Name"]
+        key = self.node_json["Output"][0]
+        parts = key.split(".")
+        if len(parts) > 1:
+            # Return the first part as the relation name
+             rel = parts[0]
+            
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.B(rel, False),
@@ -1713,12 +1721,21 @@ class UniqueNode(Node):
         
 
     def manual_cost(self):
-        rel = self.node_json["Relation Name"]
-        
+        key = self.node_json["Output"][0]
+        parts = key.split(".")
+        if len(parts) > 1:
+            # Return the first part as the relation name
+             rel = parts[0]
         return self.B(rel)
 
     def build_parent_dict(self):
-        rel = self.node_json["Relation Name"]
+        
+        key = self.node_json["Output"][0]
+        parts = key.split(".")
+        if len(parts) > 1:
+            # Return the first part as the relation name
+             rel = parts[0]
+            
         parent_dict = {
             "Node Type": self.node_json["Node Type"],
             "block_size": self.B(rel, False),
