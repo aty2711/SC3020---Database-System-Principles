@@ -1601,8 +1601,14 @@ class MemoizeNode(Node):
         )
         self.append(
             src="difference",
-            tgt="Since the previous query used it, there is no cost involved in fetching it from memory again.PostgreSQL also accounts for when volume of data to materialize exceeds work_mem and needs to be written to disk(higher cost)",
+            tgt="Since the previous query used it, there is no cost involved in fetching it from memory again.",
         )
+        
+        self.append(
+            src="difference",
+            tgt="PostgreSQL also accounts for when volume of data to materialize exceeds work_mem and needs to be written to disk(higher cost).",
+        )
+        
 
     def manual_cost(self):
         return 0
@@ -1652,7 +1658,9 @@ class AggregateNode(SortGroupNodes):
             self.node_json["Strategy"] == "Sorted"
             or self.node_json["Strategy"] == "Mixed"
         ):
+            
             self.str_explain_formula = "Formula : T(rel) * Number of groups. Aggregate used to compute summaries from sets of values like SUM,AVG. "
+            
             self.str_explain_difference = """PostgreSQL has different aggregate strategies depending on the input.  """
 
         # assume T(rel) as cost
@@ -1694,7 +1702,11 @@ class UniqueNode(Node):
     def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
-        self.str_explain_formula = "Remove duplicates from sorted set"
+
+        self.append(
+            src="formula",
+            tgt="Remove duplicates from sorted set.",
+        )
 
     def manual_cost(self):
         return 0
