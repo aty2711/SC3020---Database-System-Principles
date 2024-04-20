@@ -1427,6 +1427,7 @@ class SortGroupNodes(Node):
 
 
 class SortNode(SortGroupNodes):
+    #3 diff sorts
     def define_explanations(self):
         self.str_explain_formula = ""
         self.str_explain_difference = ""
@@ -1482,7 +1483,18 @@ class SortNode(SortGroupNodes):
             # Not sure about topn cost
             return self.B(rel) / 3
 
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
 
+        return parent_dict
+        
 class IncrementalSortNode(SortGroupNodes):
     def define_explanations(self):
         self.str_explain_formula = ""
@@ -1507,6 +1519,17 @@ class IncrementalSortNode(SortGroupNodes):
         rel = super().extract_relation_name()
         return self.B(rel) / 3
 
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
 
 class LimitNode(Node):
     def define_explanations(self):
@@ -1518,7 +1541,18 @@ class LimitNode(Node):
         rel = self.node_json["Relation Name"]
         return self.B(rel)
 
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
 
+        return parent_dict
+        
 class MaterializeNode(Node):
     def define_explanations(self):
         self.str_explain_formula = ""
@@ -1543,10 +1577,22 @@ class MaterializeNode(Node):
         rel = self.node_json["Relation Name"]
         return self.T(rel) * 2
 
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
 
+        return parent_dict
+        
 class MemoizeNode(Node):
     def define_explanations(self):
         self.str_explain_formula = ""
+        self.str_explain_difference = ""
 
         # explain relation and attributes
         self.append(
@@ -1554,17 +1600,29 @@ class MemoizeNode(Node):
             tgt="Memoize used to cache and reuse results of expensive operations when they are executed with the same parameters multiple times in a query.",
         )
         self.append(
-            src="formula",
-            tgt="Since the previous query used it, there is no cost involved in fetching it from memory again.",
+            src="difference",
+            tgt="Since the previous query used it, there is no cost involved in fetching it from memory again.PostgreSQL also accounts for when volume of data to materialize exceeds work_mem and needs to be written to disk(higher cost)",
         )
-        self.str_explain_difference = """Costs of a memoize node dependent also on nature of operations and frequency, cache hit rate and lookup times  """
 
     def manual_cost(self):
         return 0
+        
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
 
+        return parent_dict
 
 class GroupNode(Node):
     def define_explanations(self):
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
         self.str_explain_formula = "Formula : T(rel) * Number of Group Columns. "
         self.str_explain_difference = """PostgreSQL includes default cost per comparison costs overhead per input tuple.  """
 
@@ -1573,11 +1631,23 @@ class GroupNode(Node):
         rel = self.node_json["Relation Name"]
         numGroupCol = len(self.node_json.get("Group Key", []))
         return self.T(rel) * numGroupCol
+        
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
 
+        return parent_dict
 
 class AggregateNode(SortGroupNodes):
     def define_explanations(self):
-
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
         if (
             self.node_json["Strategy"] == "Sorted"
             or self.node_json["Strategy"] == "Mixed"
@@ -1607,10 +1677,36 @@ class AggregateNode(SortGroupNodes):
         else:
             return self.T(rel)
 
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
+
 
 class UniqueNode(Node):
     def define_explanations(self):
+        self.str_explain_formula = ""
+        self.str_explain_difference = ""
         self.str_explain_formula = "Remove duplicates from sorted set"
 
     def manual_cost(self):
         return 0
+
+    def build_parent_dict(self):
+        rel = self.node_json["Relation Name"]
+        parent_dict = {
+            "Node Type": self.node_json["Node Type"],
+            "block_size": self.B(rel, False),
+            "tuple_size": self.T(rel, False),
+            "manual_cost": self.manual_cost(),
+            "postgre_cost": self.node_json["Total Cost"],
+        }
+
+        return parent_dict
