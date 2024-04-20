@@ -1534,12 +1534,12 @@ class IncrementalSortNode(SortGroupNodes):
 class LimitNode(Node):
     def define_explanations(self):
         # explain relation and attributes
-        self.str_explain_formula = "Formula : B(rel) * "
-        self.str_explain_difference = """Explain """
+        self.str_explain_formula = "Takes some rows and discards remaining ones "
+        self.str_explain_difference = """ PostgreSQL factors cpu overhead and comparison costs  """
 
     def manual_cost(self):
         rel = self.node_json["Relation Name"]
-        return self.B(rel)
+        return 0
 
     def build_parent_dict(self):
         rel = self.node_json["Relation Name"]
