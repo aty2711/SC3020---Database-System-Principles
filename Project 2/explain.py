@@ -1705,11 +1705,16 @@ class UniqueNode(Node):
 
         self.append(
             src="formula",
-            tgt="Remove duplicates from sorted set.",
+            tgt="Cost Formula: B(rel). Remove duplicates from sorted result set.",
         )
 
+        self.str_explain_difference = """PostgreSQL includes default cost per comparison costs overhead per input tuple, and memory spillage costs. """
+        
+
     def manual_cost(self):
-        return 0
+        rel = self.node_json["Relation Name"]
+        
+        return self.B(rel)
 
     def build_parent_dict(self):
         rel = self.node_json["Relation Name"]
